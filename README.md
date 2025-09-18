@@ -22,7 +22,7 @@ A WiFi-connected smart home display system built on ESP32 that shows real-time s
 
 ## Hardware Requirements
 
-- **ESP32 Development Board**
+- **ESP32 Development Board JC2432W328**
 - **ST7789 320x240 TFT Display**
 - **LDR (Light Dependent Resistor)** for ambient light detection
 - **Resistors and wiring** as per schematic
