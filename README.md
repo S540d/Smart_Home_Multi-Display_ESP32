@@ -63,6 +63,8 @@ A WiFi-connected smart home display system built on ESP32 that shows real-time s
    - MQTT credentials (if required)
    - OTA update password
 
+   **Note**: If you skip this step, the build will fail with a clear error message explaining what to do.
+
 3. **Build and upload**
    ```bash
    pio run --target upload

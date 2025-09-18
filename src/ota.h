@@ -5,7 +5,6 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h>
 #include "config.h"
-#include "config_secrets.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              EXTERNE ABHÄNGIGKEITEN
@@ -21,7 +20,12 @@ extern RenderManager renderManager;
 
 namespace OTAConfig {
   constexpr const char* HOSTNAME = "SmartHomeDisplay";
-  constexpr const char* PASSWORD = CONFIG_OTA_PASSWORD;  // Defined in config_secrets.h
+  #if __has_include("config_secrets.h")
+    #include "config_secrets.h"
+    constexpr const char* PASSWORD = CONFIG_OTA_PASSWORD;
+  #else
+    constexpr const char* PASSWORD = "CHANGE_ME_IN_CONFIG_SECRETS";  // Will trigger error if used
+  #endif
   constexpr int PORT = 3232;
 }
 

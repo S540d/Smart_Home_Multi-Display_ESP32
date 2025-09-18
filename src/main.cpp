@@ -23,12 +23,14 @@ const char* const System::NTP_SERVER = "pool.ntp.org";
 const char* const System::TIMEZONE = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 // CONFIGURATION: Copy config_template.h to config_secrets.h and fill in your credentials
-// If config_secrets.h doesn't exist, the build will fail with instructions
-#include "config_secrets.h"
-
-const char* const NetworkConfig::WIFI_SSID = CONFIG_WIFI_SSID;
-const char* const NetworkConfig::WIFI_PASSWORD = CONFIG_WIFI_PASSWORD;
-const char* const NetworkConfig::MQTT_SERVER = CONFIG_MQTT_SERVER;
+#if __has_include("config_secrets.h")
+  #include "config_secrets.h"
+  const char* const NetworkConfig::WIFI_SSID = CONFIG_WIFI_SSID;
+  const char* const NetworkConfig::WIFI_PASSWORD = CONFIG_WIFI_PASSWORD;
+  const char* const NetworkConfig::MQTT_SERVER = CONFIG_MQTT_SERVER;
+#else
+  #error "\n\n*** CONFIGURATION REQUIRED ***\nPlease copy 'config_template.h' to 'src/config_secrets.h' and configure your WiFi and MQTT settings.\n\nExample:\n  cp config_template.h src/config_secrets.h\n  # Then edit src/config_secrets.h with your credentials\n"
+#endif
 const char* const NetworkConfig::MQTT_USER = "";
 const char* const NetworkConfig::MQTT_PASS = "";
 
