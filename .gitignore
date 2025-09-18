@@ -1,0 +1,59 @@
+# PlatformIO specific
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch/
+
+# IDE specific
+.vscode/.browse.c_cpp.db*
+.vscode/settings.json
+
+# Build artifacts
+build/
+.build/
+
+# Configuration files with secrets
+src/config_secrets.h
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# IDE workspace files
+*.code-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node.js (if using web tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.claude/
