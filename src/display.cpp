@@ -31,6 +31,12 @@ void clearOldElements() {
 }
 
 void updateDisplay() {
+  if (currentMode == PRICE_DETAIL_SCREEN) {
+    drawPriceDetailScreen();
+    renderManager.clearAllFlags();
+    return;
+  }
+
   if (currentMode != HOME_SCREEN) return;
   
   
@@ -137,6 +143,147 @@ void drawHomeScreen() {
   drawTimeDisplay();
   
   Serial.println("Home-Screen vollständig gezeichnet");
+}
+
+void drawPriceDetailScreen() {
+  Serial.println("Zeichne Preis-Detail-Screen...");
+
+  tft.fillScreen(Colors::BG_MAIN);
+
+  int offsetX = antiBurnin.getOffsetX();
+
+  // Titel
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Strompreis Day-Ahead", 10 + offsetX, 10, 2);
+
+  // Zurück-Button (oben rechts)
+  int backButtonX = 270 + offsetX;
+  int backButtonY = 10;
+  tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
+
+  // Aktueller Preis (groß anzeigen)
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Aktueller Preis:", 10 + offsetX, 40, 1);
+  tft.setTextColor(Colors::TEXT_MAIN);
+  String currentPriceText = String(sensors[1].formattedValue);
+  tft.drawString(currentPriceText, 10 + offsetX, 55, 3);
+
+  // Datum anzeigen
+  if (dayAheadPrices.hasData && strlen(dayAheadPrices.date) > 0) {
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString("Datum: " + String(dayAheadPrices.date), 10 + offsetX, 85, 1);
+  }
+
+  // Preis-Chart oder Liste
+  if (dayAheadPrices.hasData) {
+    drawPriceChart(offsetX);
+  } else {
+    // Keine Daten verfügbar
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("Keine Day-Ahead Daten", 10 + offsetX, 110, 2);
+    tft.drawString("verfuegbar", 10 + offsetX, 130, 2);
+
+    // MQTT Topic für Debug anzeigen
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString("Topic:", 10 + offsetX, 160, 1);
+    tft.drawString("EnergyMarketPriceDayAhead", 10 + offsetX, 175, 1);
+  }
+
+  // Status-Info unten
+  tft.setTextColor(Colors::TEXT_LABEL);
+  if (dayAheadPrices.lastUpdate > 0) {
+    unsigned long age = (millis() - dayAheadPrices.lastUpdate) / 1000;
+    String ageText = "Update vor: ";
+    if (age < 60) {
+      ageText += String(age) + "s";
+    } else if (age < 3600) {
+      ageText += String(age / 60) + "m";
+    } else {
+      ageText += String(age / 3600) + "h";
+    }
+    tft.drawString(ageText, 10 + offsetX, 220, 1);
+  }
+
+  Serial.println("Preis-Detail-Screen vollständig gezeichnet");
+}
+
+void drawPriceChart(int offsetX) {
+  // Einfaches Balkendiagramm für 24h Preise
+  const int chartX = 10 + offsetX;
+  const int chartY = 110;
+  const int chartWidth = 300;
+  const int chartHeight = 80;
+  const int barWidth = chartWidth / 24;
+
+  // Chart-Rahmen
+  tft.drawRect(chartX, chartY, chartWidth, chartHeight, Colors::BORDER_MAIN);
+
+  // Finde Min/Max Preise für Skalierung
+  float minPrice = 999.0f;
+  float maxPrice = -999.0f;
+  int validPrices = 0;
+
+  for (int i = 0; i < 24; i++) {
+    if (dayAheadPrices.prices[i].isValid) {
+      minPrice = min(minPrice, dayAheadPrices.prices[i].price);
+      maxPrice = max(maxPrice, dayAheadPrices.prices[i].price);
+      validPrices++;
+    }
+  }
+
+  if (validPrices == 0) {
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("Keine gueltigen", chartX + 10, chartY + 20, 1);
+    tft.drawString("Preisdaten", chartX + 10, chartY + 35, 1);
+    return;
+  }
+
+  // Preisbereich anzeigen
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Max: " + String(maxPrice, 2) + "ct", chartX, chartY - 15, 1);
+  tft.drawString("Min: " + String(minPrice, 2) + "ct", chartX + 100, chartY - 15, 1);
+
+  // Zeichne Balken für jede Stunde
+  for (int i = 0; i < 24; i++) {
+    if (dayAheadPrices.prices[i].isValid) {
+      float price = dayAheadPrices.prices[i].price;
+
+      // Skalierung des Balkens
+      float priceRange = maxPrice - minPrice;
+      if (priceRange < 0.01f) priceRange = 0.01f;  // Vermeide Division durch Null
+
+      int barHeight = (int)((price - minPrice) / priceRange * (chartHeight - 4));
+      barHeight = max(1, barHeight);  // Mindesthöhe
+
+      // Farbe basierend auf Preis (relativ zu Durchschnitt)
+      uint16_t barColor;
+      float avgPrice = (minPrice + maxPrice) / 2.0f;
+      if (price < avgPrice * 0.8f) {
+        barColor = Colors::STATUS_GREEN;  // Günstig
+      } else if (price > avgPrice * 1.2f) {
+        barColor = Colors::STATUS_RED;    // Teuer
+      } else {
+        barColor = Colors::STATUS_YELLOW; // Mittel
+      }
+
+      // Zeichne Balken (von unten nach oben)
+      int barX = chartX + 2 + i * barWidth;
+      int barY = chartY + chartHeight - 2 - barHeight;
+
+      tft.fillRect(barX, barY, barWidth - 1, barHeight, barColor);
+
+      // Stunden-Label (jede 4. Stunde)
+      if (i % 4 == 0) {
+        tft.setTextColor(Colors::TEXT_LABEL);
+        tft.drawString(String(i), barX, chartY + chartHeight + 2, 1);
+      }
+    }
+  }
+
+  Serial.printf("Preis-Chart gezeichnet: %d gültige Preise (%.2f - %.2f ct)\n",
+                validPrices, minPrice, maxPrice);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

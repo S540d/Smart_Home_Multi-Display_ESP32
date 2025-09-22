@@ -42,13 +42,23 @@ bool TouchManager::initialize() {
                  TouchConfig::SDA_PIN, TouchConfig::SCL_PIN,
                  TouchConfig::RESET_PIN, TouchConfig::INT_PIN);
 
-    // Timeout für Touch-Init setzen
-    unsigned long initStart = millis();
-    bool initSuccess = false;
+    // Exakte Kopie der funktionierenden Kalibrierungs-Initialisierung
+    Serial.println("🔧 Verwende funktionierende Kalibrier-Methode...");
 
-    // Mit Timeout versuchen
-    if (millis() - initStart < 2000) { // Max 2 Sekunden
+    bool initSuccess = false;
+    try {
       initSuccess = touch.init(TouchConfig::SDA_PIN, TouchConfig::SCL_PIN, TouchConfig::RESET_PIN, TouchConfig::INT_PIN);
+      if (initSuccess) {
+        Serial.println("✅ Touch normal initialisiert (wie im Kalibrierprogramm)");
+      } else {
+        Serial.println("❌ Touch normal Init fehlgeschlagen");
+        // Fallback mit anderen Parametern
+        Serial.println("🔧 Versuche Fallback Init...");
+        initSuccess = touch.init(TouchConfig::SDA_PIN, TouchConfig::SCL_PIN, -1, -1);
+      }
+    } catch (...) {
+      Serial.println("❌ Touch Init Exception");
+      initSuccess = false;
     }
 
     if (initSuccess) {
@@ -56,10 +66,26 @@ bool TouchManager::initialize() {
       Serial.println("✅ CST820 I2C Touch initialisiert");
       Serial.printf("📋 Sensor Type: %d\n", touch.sensorType());
     } else {
-      Serial.println("❌ CST820 I2C Timeout oder Fehler, überspringe Touch...");
-      // Kein Touch-Controller verfügbar - das ist OK, System läuft ohne Touch weiter
-      isInitialized = false;
-      return false;
+      Serial.println("❌ CST820 I2C alle Versuche fehlgeschlagen");
+      Serial.println("🔄 Versuche XPT2046 SPI als Fallback...");
+
+      // Fallback auf XPT2046 SPI Touch
+      Serial.printf("📍 XPT2046 Pins: CS=%d, IRQ=%d, MOSI=%d, MISO=%d, CLK=%d\n",
+                   TouchConfig::XPT_CS_PIN, TouchConfig::XPT_IRQ_PIN,
+                   TouchConfig::XPT_MOSI_PIN, TouchConfig::XPT_MISO_PIN, TouchConfig::XPT_CLK_PIN);
+
+      // XPT2046 SPI initialisieren
+      xptTouch = XPT2046_Touchscreen(TouchConfig::XPT_CS_PIN, TouchConfig::XPT_IRQ_PIN);
+      xptTouch.begin();
+
+      if (xptTouch.tirqTouched()) {
+        activeController = TOUCH_XPT2046_SPI;
+        Serial.println("✅ XPT2046 SPI Touch initialisiert");
+      } else {
+        Serial.println("❌ XPT2046 SPI auch fehlgeschlagen");
+        isInitialized = false;
+        return false;
+      }
     }
 
   } catch (...) {
@@ -105,16 +131,14 @@ TouchEvent TouchManager::update() {
   TouchPoint newPoint;
   bool hasTouch = false;
 
+  // Removed debug output - touch system is working
+
   // Handle different touch controller types
   if (activeController == TOUCH_CST820_I2C) {
     TOUCHINFO touchInfo;
     int touchCount = touch.getSamples(&touchInfo);
 
-    // Raw touch debugging for CST820 (nur bei tatsächlichem Touch)
-    if (touchCount > 0 && touchInfo.count > 0) {
-      Serial.printf("🔍 Raw CST820: x=%d, y=%d, pressure=%d\n",
-                   touchInfo.x[0], touchInfo.y[0], touchInfo.pressure[0]);
-    }
+    // Touch detected, process coordinates
 
     if (touchCount > 0 && touchInfo.count > 0) {
       newPoint = TouchPoint(touchInfo.x[0], touchInfo.y[0],
@@ -134,15 +158,6 @@ TouchEvent TouchManager::update() {
 
       newPoint = TouchPoint(x, y, 255, 0);  // Use fixed pressure value
       hasTouch = true;
-
-      Serial.printf("   TFT_eSPI Touch: (%d,%d)\n", x, y);
-    }
-
-    // Debug output every 2 seconds
-    static unsigned long lastDebugTime = 0;
-    if (millis() - lastDebugTime > 2000) {
-      lastDebugTime = millis();
-      Serial.printf("🔍 TFT_eSPI Touch Status: %s\n", touched ? "detected" : "none");
     }
   }
 
@@ -312,36 +327,31 @@ TouchEventType TouchManager::detectGesture(const TouchPoint& start, const TouchP
 
 void TouchManager::applyCalibration(TouchPoint& point) {
   if (activeController == TOUCH_CST820_I2C) {
-    // CST820-spezifische Kalibrierung für JC2432W328
-    // Kalibrierungswerte aus touch_calibration.cpp: SwapXY=true, MirrorY=true
-    // ScaleX=1.036, ScaleY=1.017, OffsetX=-175.1, OffsetY=62.5
-
-    // Rohe Koordinaten protokollieren
     uint16_t rawX = point.x;
     uint16_t rawY = point.y;
 
-    // Anwenden der Kalibrierungsparameter
-    float x = rawX;
-    float y = rawY;
+    // Debug: Uncomment for touch debugging
+    // Serial.printf("🔍 Touch Raw: (%d,%d)\n", rawX, rawY);
 
-    // X/Y vertauschen (SwapXY=true)
-    float temp = x;
-    x = y;
-    y = temp;
+    // FUNKTIONIERENDE KALIBRIERUNG (getestet im touch_calibration):
+    // Oben links: Raw(230,9) → Display(0,0)
+    // Oben rechts: Raw(230,310) → Display(320,0)
+    // Unten links: Raw(1,9) → Display(0,240)
+    // Unten rechts: Raw(1,310) → Display(320,240)
 
-    // Y-Achse spiegeln (MirrorY=true)
-    y = -y;
+    // ACHSEN SIND VERTAUSCHT UND GESPIEGELT:
+    // Raw X (230→1) → Display Y (0→240)
+    // Raw Y (9→310) → Display X (0→320)
 
-    // Skalierung und Offset anwenden
-    x = x * 1.036f + (-175.1f);
-    y = y * 1.017f + 62.5f;
+    float x = map(rawY, 9, 310, 0, 320);    // Raw Y → Display X
+    float y = map(rawX, 230, 1, 0, 240);    // Raw X → Display Y (gespiegelt)
 
     // Begrenzen auf Display-Bereich
     point.x = constrain((int)x, 0, TouchConfig::DISPLAY_WIDTH - 1);
     point.y = constrain((int)y, 0, TouchConfig::DISPLAY_HEIGHT - 1);
 
-    Serial.printf("   Kalibriert: Raw(%d,%d) -> Swapped(%.0f,%.0f) -> Final(%d,%d)\n",
-                 rawX, rawY, rawY, -rawX, point.x, point.y);
+    // Debug: Uncomment for calibration debugging
+    // Serial.printf("   → Mapped: Raw(%d,%d) -> Display(%d,%d)\n", rawX, rawY, point.x, point.y);
   }
 
   // Für XPT2046 verwenden wir die TFT_eSPI Kalibrierung (bereits angewendet)
@@ -560,9 +570,9 @@ void onLongPress(const TouchPoint& point) {
   // Check if long press is in empty area (not on sensor)
   int sensorIndex = touchManager.findTouchedSensor(point);
   if (sensorIndex == -1) {
-    // Long press in empty area - start calibration
-    Serial.println("🎯 Starte Kalibrierung...");
-    touchManager.startCalibration();
+    // Long press in empty area - disabled auto calibration for now
+    Serial.println("🏠 Long Press im leeren Bereich erkannt");
+    Serial.println("   (Auto-Kalibrierung deaktiviert)");
   } else {
     // Long press on sensor - sensor-specific action
     Serial.printf("🔧 Sensor %d Einstellungen\n", sensorIndex);

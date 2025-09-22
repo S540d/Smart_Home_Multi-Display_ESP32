@@ -395,24 +395,19 @@ void handleTestTouch() {
 }
 
 void applyCalibratedTouch(int rawX, int rawY, int& calX, int& calY) {
-  float x = rawX;
-  float y = rawY;
+  // FESTE KALIBRIERUNG basierend auf gemessenen Werten:
+  // Oben links: Raw(230,9) → Display(0,0)
+  // Oben rechts: Raw(230,310) → Display(320,0)
+  // Unten links: Raw(1,9) → Display(0,240)
+  // Unten rechts: Raw(1,310) → Display(320,240)
 
-  // X/Y vertauschen falls nötig
-  if (calibration.swapXY) {
-    float temp = x;
-    x = y;
-    y = temp;
-  }
+  // ACHSEN SIND VERTAUSCHT UND GESPIEGELT:
+  // Raw X (230→1) → Display Y (0→240)
+  // Raw Y (9→310) → Display X (0→320)
 
-  // Spiegelung
-  if (calibration.mirrorX) x = -x;
-  if (calibration.mirrorY) y = -y;
+  float x = map(rawY, 9, 310, 0, 320);    // Raw Y → Display X
+  float y = map(rawX, 230, 1, 0, 240);    // Raw X → Display Y (gespiegelt)
 
-  // Skalierung und Offset anwenden
-  x = x * calibration.scaleX + calibration.offsetX;
-  y = y * calibration.scaleY + calibration.offsetY;
-
-  calX = (int)x;
-  calY = (int)y;
+  calX = constrain((int)x, 0, 319);
+  calY = constrain((int)y, 0, 239);
 }

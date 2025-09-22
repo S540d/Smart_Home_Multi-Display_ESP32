@@ -29,6 +29,9 @@ extern bool isGridFeedIn;
 extern bool isStorageCharging;
 extern DisplayMode currentMode;
 
+// Price Detail Data
+extern DayAheadPriceData dayAheadPrices;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              DISPLAY-FUNKTIONEN
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -36,6 +39,8 @@ extern DisplayMode currentMode;
 // Haupt-Render-Funktionen
 void updateDisplay();
 void drawHomeScreen();
+void drawPriceDetailScreen();
+void drawPriceChart(int offsetX);
 void clearOldElements();
 
 // Sensor und UI-Komponenten

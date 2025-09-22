@@ -159,10 +159,11 @@ void reconnectMQTT() {
       NetworkConfig::topics.pvPower,
       NetworkConfig::topics.gridPower,
       NetworkConfig::topics.loadPower,
-      NetworkConfig::topics.storagePower
+      NetworkConfig::topics.storagePower,
+      NetworkConfig::topics.energyMarketPriceDayAhead
     };
-    
-    for (int i = 0; i < 7; i++) {
+
+    for (int i = 0; i < 8; i++) {
       if (client.subscribe(specialTopics[i])) {
         successCount++;
         Serial.printf("✓ Special: %s\n", specialTopics[i]);
@@ -319,7 +320,10 @@ void processMqttMessage(const char* topic, const String& message) {
   } else if (strcmp(topic, NetworkConfig::topics.historyResponse) == 0) {
     Serial.printf("History-Response: %s\n", message.c_str());
     // Note: History screen feature to be implemented in future version
-    
+
+  } else if (strcmp(topic, NetworkConfig::topics.energyMarketPriceDayAhead) == 0) {
+    processDayAheadPriceData(message);
+
   } else {
     Serial.printf("WARNUNG - Unbekanntes MQTT-Topic: %s\n", topic);
   }
@@ -520,4 +524,87 @@ void updatePVNetDisplay() {
   
   Serial.printf("✅ PV/Grid Update: Verbrauch %.1fkW (stabil mit Mix aus neuen/alten Werten)\n",
                 workingLoadPower);
+}
+
+void processDayAheadPriceData(const String& message) {
+  Serial.printf("📊 Day-Ahead Preisdaten empfangen: %s\n", message.c_str());
+
+  // JSON-Parser für Day-Ahead Daten
+  // Erwartetes Format: {"date":"2024-12-01","prices":[{"hour":"00:00","price":12.34},...]}
+  extern DayAheadPriceData dayAheadPrices;
+
+  // Einfache JSON-Parsing (ohne ArduinoJson für Speichereffizienz)
+  // In Produktionsumgebung sollte echte JSON-Parsing verwendet werden
+
+  // Datum extrahieren
+  int dateStart = message.indexOf("\"date\":\"") + 8;
+  if (dateStart > 7) {
+    int dateEnd = message.indexOf("\"", dateStart);
+    if (dateEnd > dateStart) {
+      String dateStr = message.substring(dateStart, dateEnd);
+      strncpy(dayAheadPrices.date, dateStr.c_str(), sizeof(dayAheadPrices.date) - 1);
+      dayAheadPrices.date[sizeof(dayAheadPrices.date) - 1] = '\0';
+    }
+  }
+
+  // Preise extrahieren (vereinfachte Parsing)
+  dayAheadPrices.clear();
+
+  int pricesStart = message.indexOf("\"prices\":[");
+  if (pricesStart != -1) {
+    int currentPos = pricesStart + 10; // Nach "prices":["
+    int hourIndex = 0;
+
+    while (currentPos < message.length() && hourIndex < 24) {
+      // Suche nach hour
+      int hourStart = message.indexOf("\"hour\":\"", currentPos);
+      if (hourStart == -1) break;
+      hourStart += 8;
+
+      int hourEnd = message.indexOf("\"", hourStart);
+      if (hourEnd == -1) break;
+
+      String hour = message.substring(hourStart, hourEnd);
+
+      // Suche nach price
+      int priceStart = message.indexOf("\"price\":", hourEnd);
+      if (priceStart == -1) break;
+      priceStart += 8;
+
+      int priceEnd = message.indexOf("}", priceStart);
+      if (priceEnd == -1) priceEnd = message.indexOf(",", priceStart);
+      if (priceEnd == -1) priceEnd = message.indexOf("]", priceStart);
+      if (priceEnd == -1) break;
+
+      String priceStr = message.substring(priceStart, priceEnd);
+      float price = priceStr.toFloat();
+
+      // Speichere in dayAheadPrices
+      if (hourIndex < 24) {
+        dayAheadPrices.prices[hourIndex].price = price;
+        strncpy(dayAheadPrices.prices[hourIndex].hour, hour.c_str(),
+                sizeof(dayAheadPrices.prices[hourIndex].hour) - 1);
+        dayAheadPrices.prices[hourIndex].hour[sizeof(dayAheadPrices.prices[hourIndex].hour) - 1] = '\0';
+        dayAheadPrices.prices[hourIndex].isValid = true;
+        hourIndex++;
+      }
+
+      currentPos = priceEnd + 1;
+    }
+
+    dayAheadPrices.hasData = (hourIndex > 0);
+    dayAheadPrices.lastUpdate = millis();
+
+    Serial.printf("✅ Day-Ahead Daten verarbeitet: %d Preise für %s\n",
+                  hourIndex, dayAheadPrices.date);
+
+    // Wenn wir in der Preis-Detail-Ansicht sind, Display aktualisieren
+    extern DisplayMode currentMode;
+    if (currentMode == PRICE_DETAIL_SCREEN) {
+      extern RenderManager renderManager;
+      renderManager.markFullRedrawRequired();
+    }
+  } else {
+    Serial.println("❌ Fehler beim Parsen der Day-Ahead Daten - kein prices Array gefunden");
+  }
 }

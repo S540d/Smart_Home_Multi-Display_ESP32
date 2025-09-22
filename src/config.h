@@ -147,6 +147,7 @@ namespace NetworkConfig {
     const char* const stockPreviousClose = "home/stocks/CL2PAPrevClose";
     const char* const historyRequest = "display/history_request";
     const char* const historyResponse = "display/history_response";
+    const char* const energyMarketPriceDayAhead = "EnergyMarketPriceDayAhead";
     
     // Power Management Topics
     const char* const pvPower = "home/PV/CurrentPower";          // PV-Erzeugung
@@ -419,6 +420,34 @@ struct RenderManager {
 };
 
 // Display-Modi
-enum DisplayMode { HOME_SCREEN, HISTORY_SCREEN };
+enum DisplayMode { HOME_SCREEN, HISTORY_SCREEN, PRICE_DETAIL_SCREEN };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//                              PRICE DETAIL DATA STRUCTURES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+struct HourlyPrice {
+  float price = 0.0f;
+  char hour[6] = "";  // Format: "HH:MM"
+  bool isValid = false;
+};
+
+struct DayAheadPriceData {
+  HourlyPrice prices[24];  // 24 Stunden des Tages
+  unsigned long lastUpdate = 0;
+  bool hasData = false;
+  char date[11] = "";  // Format: "DD.MM.YYYY"
+
+  void clear() {
+    for (int i = 0; i < 24; i++) {
+      prices[i].isValid = false;
+      prices[i].price = 0.0f;
+      strcpy(prices[i].hour, "");
+    }
+    hasData = false;
+    lastUpdate = 0;
+    strcpy(date, "");
+  }
+};
 
 #endif // CONFIG_H

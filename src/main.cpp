@@ -88,6 +88,9 @@ struct ADCStats {
 // Display-Modus
 DisplayMode currentMode = HOME_SCREEN;
 
+// Price Detail Data
+DayAheadPriceData dayAheadPrices;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              FUNKTIONS-PROTOTYPEN
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -447,7 +450,25 @@ void handleTouchEvent(const TouchEvent& event) {
       // Touch wurde beendet - hier könnten Click-Actions implementiert werden
       if (event.sensorIndex >= 0) {
         Serial.printf("🖱️ Click auf Sensor %d\n", event.sensorIndex);
-        // Future: Sensor-spezifische Click-Aktionen
+        // Preis-Box Touch (Sensor Index 1) - Wechsel zur Preis-Detail-Ansicht
+        if (event.sensorIndex == 1 && currentMode == HOME_SCREEN) {
+          Serial.println("💰 Wechsel zur Preis-Detail-Ansicht");
+          currentMode = PRICE_DETAIL_SCREEN;
+          renderManager.markFullRedrawRequired();
+        }
+      } else {
+        // Touch außerhalb von Sensor-Bereichen
+        if (currentMode == PRICE_DETAIL_SCREEN) {
+          // Prüfe ob Zurück-Button berührt wurde (oben rechts)
+          int backButtonX = 270 + antiBurnin.getOffsetX();
+          int backButtonY = 10;
+          if (event.point.x >= backButtonX && event.point.x <= backButtonX + 40 &&
+              event.point.y >= backButtonY && event.point.y <= backButtonY + 20) {
+            Serial.println("🏠 Zurück zur Hauptansicht");
+            currentMode = HOME_SCREEN;
+            renderManager.markFullRedrawRequired();
+          }
+        }
       }
       break;
 

@@ -59,6 +59,7 @@ void processMqttMessage(const char* topic, const String& message);
 
 // Sensor-Datenverarbeitung (aus MQTT)
 void updateSensorValue(int index, float newValue);
+void processDayAheadPriceData(const String& message);
 
 // Hilfsfunktionen
 bool isValidSensorIndex(int index);
