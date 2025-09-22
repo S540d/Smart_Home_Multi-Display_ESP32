@@ -470,14 +470,19 @@ void updatePVNetDisplay() {
   }
 
   if (!hasValidData) {
-    // Fallback: Verwende letzten Sensor-Wert oder Default
-    if (sensors[4].value <= 0.0f) {
-      sensors[4].value = 2.0f; // Default: 2kW Grundverbrauch
-      Serial.println("⚠️ Fallback: Standard-Verbrauch 2kW verwendet");
+    // Fallback: Behalte den letzten gültigen Sensor-Wert bei oder setze Default nur einmal
+    if (sensors[4].value <= 0.0f && sensors[4].isTimedOut) {
+      sensors[4].value = 2.0f; // Default: 2kW Grundverbrauch, nur wenn noch nie gesetzt
+      sensors[4].formattedValue[0] = '\0'; // Force reformatting
+      sensors[4].hasChanged = true;
+      Serial.println("⚠️ Fallback: Standard-Verbrauch 2kW verwendet (einmalig)");
     }
+    // Sensor als nicht-timeout markieren um Display beizubehalten
     sensors[4].isTimedOut = false;
     sensors[4].lastUpdate = millis();
-    Serial.println("🔄 Verwende letzten Sensor-Wert");
+    sensors[4].formatValue();
+    renderManager.markSensorChanged(4);
+    Serial.printf("🔄 Behalte letzten Verbrauchswert bei: %.1fkW\n", sensors[4].value);
     return;
   }
 

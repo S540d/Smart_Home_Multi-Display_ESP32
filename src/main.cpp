@@ -13,6 +13,7 @@
 #include "sensors.h"
 #include "utils.h"
 #include "ota.h"
+#include "touch.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              GLOBALE OBJEKTE UND VARIABLEN
@@ -94,6 +95,7 @@ void initializeTime();
 void updateSystemStatus();
 void handleLowMemory();
 void handleCriticalError(const char* error);
+void handleTouchEvent(const TouchEvent& event);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              SETUP UND MAIN LOOP
@@ -135,7 +137,12 @@ void setup() {
     
     Serial.println("🔄 Aktiviere OTA-Updates...");
     initializeOTA();
-    
+
+    Serial.println("🎯 Initialisiere Touch-Controller...");
+    if (!initializeTouch()) {
+      Serial.println("⚠️ Touch-Controller nicht verfügbar - System läuft ohne Touch weiter");
+    }
+
     Serial.println("📧 Konfiguriere MQTT...");
     client.setServer(NetworkConfig::MQTT_SERVER, NetworkConfig::MQTT_PORT);
     client.setCallback(onMqttMessage);
@@ -168,6 +175,12 @@ void loop() {
       reconnectMQTT();
     }
     client.loop();
+
+    // Touch-Events verarbeiten
+    TouchEvent touchEvent = processTouchInput();
+    if (touchEvent.type != TOUCH_NONE) {
+      handleTouchEvent(touchEvent);
+    }
     
     // Periodische Updates
     if (now - lastSystemUpdate >= Timing::SYSTEM_UPDATE_INTERVAL) {
@@ -437,5 +450,63 @@ void handleCriticalError(const char* error) {
   
   // Cleanup und Restart über utils.cpp
   scheduleRestart(10000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//                              TOUCH-EVENT-HANDLER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void handleTouchEvent(const TouchEvent& event) {
+  switch (event.type) {
+    case TOUCH_DOWN:
+      // Touch wurde gestartet
+      if (event.sensorIndex >= 0) {
+        onSensorTouched(event.sensorIndex);
+      }
+      break;
+
+    case TOUCH_UP:
+      // Touch wurde beendet - hier könnten Click-Actions implementiert werden
+      if (event.sensorIndex >= 0) {
+        Serial.printf("🖱️ Click auf Sensor %d\n", event.sensorIndex);
+        // Future: Sensor-spezifische Click-Aktionen
+      }
+      break;
+
+    case TOUCH_LONG_PRESS:
+      onLongPress(event.point);
+      break;
+
+    case TOUCH_DOUBLE_TAP:
+      Serial.printf("👆👆 Double Tap bei (%d,%d)\n", event.point.x, event.point.y);
+      if (event.sensorIndex >= 0) {
+        Serial.printf("🔧 Sensor %d Detail-Ansicht\n", event.sensorIndex);
+        // Future: Open sensor detail view
+      }
+      break;
+
+    case SWIPE_LEFT:
+    case SWIPE_RIGHT:
+    case SWIPE_UP:
+    case SWIPE_DOWN:
+      onGestureDetected(event.type);
+      break;
+
+    case TOUCH_MOVE:
+      // Touch-Bewegung - für Drag-Operationen
+      break;
+
+    default:
+      break;
+  }
+
+  // Touch-Bereiche nach Anti-Burnin-Änderungen aktualisieren
+  static unsigned long lastTouchAreaUpdate = 0;
+  if (millis() - lastTouchAreaUpdate > 5000) { // Alle 5 Sekunden prüfen
+    if (antiBurnin.hasOffsetChanged()) {
+      touchManager.updateSensorTouchAreas();
+      lastTouchAreaUpdate = millis();
+    }
+  }
 }
 
