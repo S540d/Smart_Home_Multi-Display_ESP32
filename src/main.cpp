@@ -73,6 +73,10 @@ unsigned long lastWifiReconnect = 0;
 unsigned long lastLDROutput = 0;
 unsigned long systemStartTime = 0;
 
+// Touch-Init-Variablen (delayed init to avoid bootloop)
+bool touchInitAttempted = false;
+unsigned long touchInitDelay = 10000; // 10 Sekunden nach Boot
+
 // ADC-Stabilitäts-Tracking für Pins 34-39
 struct ADCStats {
   int totalVariation = 0;
@@ -138,10 +142,9 @@ void setup() {
     Serial.println("🔄 Aktiviere OTA-Updates...");
     initializeOTA();
 
-    Serial.println("🎯 Initialisiere Touch-Controller...");
-    if (!initializeTouch()) {
-      Serial.println("⚠️ Touch-Controller nicht verfügbar - System läuft ohne Touch weiter");
-    }
+    Serial.println("🎯 Touch-Controller...");
+    Serial.println("⚠️ Touch-Init temporär deaktiviert wegen Bootschleife-Problem");
+    Serial.println("   System läuft ohne Touch weiter");
 
     Serial.println("📧 Konfiguriere MQTT...");
     client.setServer(NetworkConfig::MQTT_SERVER, NetworkConfig::MQTT_PORT);
@@ -169,7 +172,23 @@ void loop() {
   try {
     // OTA-Updates verarbeiten (höchste Priorität)
     handleOTA();
-    
+
+    // Touch-Init verzögert nach System-Start (Bootschleife vermeiden)
+    if (!touchInitAttempted && (now - systemStartTime) > touchInitDelay) {
+      touchInitAttempted = true;
+      Serial.println("🎯 Versuche verzögerte Touch-Initialisierung...");
+
+      try {
+        if (initializeTouch()) {
+          Serial.println("✅ Touch-Controller nachträglich initialisiert");
+        } else {
+          Serial.println("⚠️ Touch-Controller nicht verfügbar - System läuft ohne Touch weiter");
+        }
+      } catch (...) {
+        Serial.println("❌ Touch-Init fehlgeschlagen - Touch bleibt deaktiviert");
+      }
+    }
+
     // MQTT Verbindung verwalten
     if (!client.connected()) {
       reconnectMQTT();
@@ -193,48 +212,7 @@ void loop() {
       checkSensorTimeouts();
     }
     
-    // ADC-Test für LDR-Pins 34-39 alle 2 Sekunden ausgeben
-    if (now - lastLDROutput >= 2000) {
-      lastLDROutput = now;
-      
-      // Arrays für alle 6 Pins
-      int pin_values[6][3]; // [pin_index][measurement]
-      int pin_sums[6] = {0};
-      int pins[6] = {System::ADC_TEST_PIN_34, System::ADC_TEST_PIN_35, System::ADC_TEST_PIN_36,
-                     System::ADC_TEST_PIN_37, System::ADC_TEST_PIN_38, System::ADC_TEST_PIN_39};
-      
-      // 3 schnelle Messungen für jeden Pin
-      for (int i = 0; i < 3; i++) {
-        for (int p = 0; p < 6; p++) {
-          pin_values[p][i] = analogRead(pins[p]);
-          pin_sums[p] += pin_values[p][i];
-        }
-        if (i < 2) delay(5); // Kurze Pause zwischen Messungen
-      }
-      
-      // Durchschnittswerte und Variationen berechnen
-      int pin_avgs[6];
-      int pin_variations[6];
-      ADCStats* stats[6] = {&adcStats34, &adcStats35, &adcStats36, &adcStats37, &adcStats38, &adcStats39};
-      
-      for (int p = 0; p < 6; p++) {
-        pin_avgs[p] = pin_sums[p] / 3;
-        
-        int pin_min = min(pin_values[p][0], min(pin_values[p][1], pin_values[p][2]));
-        int pin_max = max(pin_values[p][0], max(pin_values[p][1], pin_values[p][2]));
-        pin_variations[p] = pin_max - pin_min;
-        
-        // Langzeit-Stabilität trackken
-        stats[p]->totalVariation += pin_variations[p];
-        stats[p]->sampleCount++;
-        stats[p]->lastValue = pin_avgs[p];
-        stats[p]->averageVariation = (float)stats[p]->totalVariation / stats[p]->sampleCount;
-      }
-      
-      // Kompakte Ausgabe in einer Zeile für bessere Vergleichbarkeit
-      Serial.printf("ADC | P34:%4d P35:%4d P36:%4d P37:%4d P38:%4d P39:%4d\n",
-                   pin_avgs[0], pin_avgs[1], pin_avgs[2], pin_avgs[3], pin_avgs[4], pin_avgs[5]);
-    }
+    // ADC-Test entfernt - war nur für Hardware-Debugging
     
     // Anti-Burnin Management
     antiBurnin.update();

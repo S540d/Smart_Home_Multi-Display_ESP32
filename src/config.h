@@ -190,6 +190,10 @@ struct SensorData {
   
   // Trend-Analyse
   enum TrendDirection { STABLE, UP, DOWN } trend = STABLE;
+
+  // Touch-Interaktion
+  unsigned int touchCount = 0;         // Anzahl der Touch-Events
+  unsigned long lastTouchTime = 0;     // Letzter Touch-Zeitstempel
   
   // Intelligente Wert-Formatierung
   void formatValue() {

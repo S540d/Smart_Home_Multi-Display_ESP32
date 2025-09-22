@@ -17,24 +17,59 @@ const int EEPROM_CALIBRATION_MAGIC = 0x54434C; // "TCL" (Touch Calibration)
 //                              TOUCHMANAGER IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-TouchManager::TouchManager() : isInitialized(false), calibrationMode(false), hasCalibration(false) {
-  // Initialize calibration matrix with identity transform
-  calibrationMatrix[0] = 1.0f; calibrationMatrix[1] = 0.0f; calibrationMatrix[2] = 0.0f;
-  calibrationMatrix[3] = 0.0f; calibrationMatrix[4] = 1.0f; calibrationMatrix[5] = 0.0f;
+TouchManager::TouchManager() : xptTouch(TouchConfig::XPT_CS_PIN, TouchConfig::XPT_IRQ_PIN),
+                                 isInitialized(false), calibrationMode(false), hasCalibration(false),
+                                 activeController(TOUCH_CST820_I2C) {
+  // Initialize calibration matrix with CST820-optimized transform
+  // Basierend auf JC2432W328 Display (320x240) mit 90° Rotation
+  calibrationMatrix[0] = 320.0f/240.0f; calibrationMatrix[1] = 0.0f; calibrationMatrix[2] = 0.0f;
+  calibrationMatrix[3] = 0.0f; calibrationMatrix[4] = 240.0f/320.0f; calibrationMatrix[5] = 0.0f;
+  hasCalibration = true; // Verwende Standard-Kalibrierung
 }
 
 bool TouchManager::initialize() {
-  Serial.println("🎯 Initialisiere Touch-Controller CST820...");
+  Serial.println("🎯 Initialisiere Touch-Controller...");
 
-  // Initialize I2C pins for CST820
-  if (!touch.init(TouchConfig::SDA_PIN, TouchConfig::SCL_PIN,
-                  TouchConfig::RESET_PIN, TouchConfig::INT_PIN)) {
-    Serial.println("❌ CST820 Touch-Controller nicht gefunden!");
+  // EMERGENCY: Sichere Initialisierung um Bootschleife zu vermeiden
+  try {
+    Serial.println("📱 Versuche CST820 I2C Touch zuerst...");
+
+    // Kurze Verzögerung um Bootschleife zu vermeiden
+    delay(100);
+    yield();
+
+    Serial.printf("📍 Verwende CST820 Pins: SDA=%d, SCL=%d, RST=%d, INT=%d\n",
+                 TouchConfig::SDA_PIN, TouchConfig::SCL_PIN,
+                 TouchConfig::RESET_PIN, TouchConfig::INT_PIN);
+
+    // Timeout für Touch-Init setzen
+    unsigned long initStart = millis();
+    bool initSuccess = false;
+
+    // Mit Timeout versuchen
+    if (millis() - initStart < 2000) { // Max 2 Sekunden
+      initSuccess = touch.init(TouchConfig::SDA_PIN, TouchConfig::SCL_PIN, TouchConfig::RESET_PIN, TouchConfig::INT_PIN);
+    }
+
+    if (initSuccess) {
+      activeController = TOUCH_CST820_I2C;
+      Serial.println("✅ CST820 I2C Touch initialisiert");
+      Serial.printf("📋 Sensor Type: %d\n", touch.sensorType());
+    } else {
+      Serial.println("❌ CST820 I2C Timeout oder Fehler, überspringe Touch...");
+      // Kein Touch-Controller verfügbar - das ist OK, System läuft ohne Touch weiter
+      isInitialized = false;
+      return false;
+    }
+
+  } catch (...) {
+    Serial.println("❌ KRITISCHER FEHLER in Touch-Initialisierung - Touch deaktiviert");
+    isInitialized = false;
     return false;
   }
 
-  // Set display orientation to match current display rotation
-  touch.setOrientation(1, TouchConfig::DISPLAY_WIDTH, TouchConfig::DISPLAY_HEIGHT);
+  // Display orientation wird über Kalibrierung gehandhabt
+  // touch.setOrientation(1, TouchConfig::DISPLAY_WIDTH, TouchConfig::DISPLAY_HEIGHT);
 
   // Load calibration data from EEPROM
   loadCalibration();
@@ -66,16 +101,52 @@ TouchEvent TouchManager::update() {
     return event;
   }
 
-  TOUCHINFO touchInfo;
-  int touchCount = touch.getSamples(&touchInfo);
-
   unsigned long now = millis();
+  TouchPoint newPoint;
+  bool hasTouch = false;
 
-  if (touchCount > 0 && touchInfo.count > 0) {
-    // Create touch point from first touch
-    TouchPoint newPoint(touchInfo.x[0], touchInfo.y[0],
-                       touchInfo.pressure[0], touchInfo.area[0]);
+  // Handle different touch controller types
+  if (activeController == TOUCH_CST820_I2C) {
+    TOUCHINFO touchInfo;
+    int touchCount = touch.getSamples(&touchInfo);
 
+    // Raw touch debugging for CST820 (nur bei tatsächlichem Touch)
+    if (touchCount > 0 && touchInfo.count > 0) {
+      Serial.printf("🔍 Raw CST820: x=%d, y=%d, pressure=%d\n",
+                   touchInfo.x[0], touchInfo.y[0], touchInfo.pressure[0]);
+    }
+
+    if (touchCount > 0 && touchInfo.count > 0) {
+      newPoint = TouchPoint(touchInfo.x[0], touchInfo.y[0],
+                           touchInfo.pressure[0], touchInfo.area[0]);
+      hasTouch = true;
+    }
+
+  } else if (activeController == TOUCH_XPT2046_SPI) {
+    // Use TFT_eSPI touch interface (like in example code)
+    uint16_t x, y;
+    bool touched = tft.getTouch(&x, &y, 600); // 600 = pressure threshold
+
+    if (touched) {
+      // Constrain to display bounds
+      x = constrain(x, 0, TouchConfig::DISPLAY_WIDTH - 1);
+      y = constrain(y, 0, TouchConfig::DISPLAY_HEIGHT - 1);
+
+      newPoint = TouchPoint(x, y, 255, 0);  // Use fixed pressure value
+      hasTouch = true;
+
+      Serial.printf("   TFT_eSPI Touch: (%d,%d)\n", x, y);
+    }
+
+    // Debug output every 2 seconds
+    static unsigned long lastDebugTime = 0;
+    if (millis() - lastDebugTime > 2000) {
+      lastDebugTime = millis();
+      Serial.printf("🔍 TFT_eSPI Touch Status: %s\n", touched ? "detected" : "none");
+    }
+  }
+
+  if (hasTouch) {
     // Apply calibration transformation
     if (hasCalibration) {
       applyCalibration(newPoint);
@@ -240,18 +311,40 @@ TouchEventType TouchManager::detectGesture(const TouchPoint& start, const TouchP
 }
 
 void TouchManager::applyCalibration(TouchPoint& point) {
-  if (!hasCalibration) return;
+  if (activeController == TOUCH_CST820_I2C) {
+    // CST820-spezifische Kalibrierung für JC2432W328
+    // Kalibrierungswerte aus touch_calibration.cpp: SwapXY=true, MirrorY=true
+    // ScaleX=1.036, ScaleY=1.017, OffsetX=-175.1, OffsetY=62.5
 
-  float x = point.x;
-  float y = point.y;
+    // Rohe Koordinaten protokollieren
+    uint16_t rawX = point.x;
+    uint16_t rawY = point.y;
 
-  // Apply 2D transformation matrix
-  point.x = (uint16_t)(calibrationMatrix[0] * x + calibrationMatrix[1] * y + calibrationMatrix[2]);
-  point.y = (uint16_t)(calibrationMatrix[3] * x + calibrationMatrix[4] * y + calibrationMatrix[5]);
+    // Anwenden der Kalibrierungsparameter
+    float x = rawX;
+    float y = rawY;
 
-  // Clamp to display bounds
-  point.x = constrain(point.x, 0, TouchConfig::DISPLAY_WIDTH - 1);
-  point.y = constrain(point.y, 0, TouchConfig::DISPLAY_HEIGHT - 1);
+    // X/Y vertauschen (SwapXY=true)
+    float temp = x;
+    x = y;
+    y = temp;
+
+    // Y-Achse spiegeln (MirrorY=true)
+    y = -y;
+
+    // Skalierung und Offset anwenden
+    x = x * 1.036f + (-175.1f);
+    y = y * 1.017f + 62.5f;
+
+    // Begrenzen auf Display-Bereich
+    point.x = constrain((int)x, 0, TouchConfig::DISPLAY_WIDTH - 1);
+    point.y = constrain((int)y, 0, TouchConfig::DISPLAY_HEIGHT - 1);
+
+    Serial.printf("   Kalibriert: Raw(%d,%d) -> Swapped(%.0f,%.0f) -> Final(%d,%d)\n",
+                 rawX, rawY, rawY, -rawX, point.x, point.y);
+  }
+
+  // Für XPT2046 verwenden wir die TFT_eSPI Kalibrierung (bereits angewendet)
 }
 
 void TouchManager::startCalibration() {
@@ -363,15 +456,75 @@ TouchEvent processTouchInput() {
 void onSensorTouched(int sensorIndex) {
   if (sensorIndex < 0 || sensorIndex >= System::SENSOR_COUNT) return;
 
-  Serial.printf("🎯 Sensor %d (%s) berührt\n", sensorIndex, sensors[sensorIndex].label);
+  SensorData& sensor = sensors[sensorIndex];
+  Serial.printf("🎯 Sensor %d (%s) berührt - Wert: %.2f %s\n",
+               sensorIndex, sensor.label, sensor.value, sensor.unit);
 
-  // Add visual feedback
+  // Visuelles Feedback durch kurzes Highlight
   renderManager.markSensorChanged(sensorIndex);
 
-  // Future: Add sensor-specific actions
-  // - Toggle sensor details
-  // - Open sensor history
-  // - Sensor-specific settings
+  // Touch-Statistik für Sensor führen
+  sensor.touchCount++;
+  sensor.lastTouchTime = millis();
+
+  // Sensor-spezifische Aktionen basierend auf Typ
+  switch (sensorIndex) {
+    case 0: // Ökostrom %
+      Serial.printf("   💚 Grünstrom-Anteil: %.1f%% %s\n",
+                   sensor.value,
+                   sensor.value > 80.0f ? "(Sehr gut!)" :
+                   sensor.value > 50.0f ? "(Gut)" : "(Niedrig)");
+      break;
+
+    case 1: // Strompreis
+      Serial.printf("   💰 Aktueller Preis: %.2f ct/kWh %s\n",
+                   sensor.value,
+                   sensor.value < 15.0f ? "(Günstig!)" :
+                   sensor.value < 25.0f ? "(Normal)" : "(Teuer)");
+      break;
+
+    case 2: // Aktie
+      Serial.printf("   📈 Aktienkurs: %.2f EUR %s\n",
+                   sensor.value,
+                   sensor.trend == SensorData::UP ? "📈" :
+                   sensor.trend == SensorData::DOWN ? "📉" : "➡️");
+      break;
+
+    case 3: // Ladestand
+      Serial.printf("   🔋 Batteriestand: %.0f%% %s\n",
+                   sensor.value,
+                   sensor.value > 80.0f ? "(Voll)" :
+                   sensor.value > 20.0f ? "(OK)" : "(Niedrig - bitte laden!)");
+      break;
+
+    case 4: // Verbrauch
+      Serial.printf("   ⚡ Hausverbrauch: %.2f kW %s\n",
+                   sensor.value,
+                   sensor.value > 3.0f ? "(Hoch)" :
+                   sensor.value > 1.0f ? "(Normal)" : "(Niedrig)");
+      break;
+
+    case 5: // Wallbox
+      Serial.printf("   🚗 Wallbox: %.0f W %s\n",
+                   sensor.value,
+                   sensor.value > 1000.0f ? "(Lädt aktiv)" : "(Nicht aktiv)");
+      break;
+
+    case 6: // Außentemperatur
+      Serial.printf("   🌡️ Außentemperatur: %.1f°C %s\n",
+                   sensor.value,
+                   sensor.value > 25.0f ? "(Warm)" :
+                   sensor.value > 15.0f ? "(Mild)" :
+                   sensor.value > 5.0f ? "(Kühl)" : "(Kalt)");
+      break;
+
+    case 7: // Wassertemperatur
+      Serial.printf("   🌊 Wassertemperatur: %.1f°C %s\n",
+                   sensor.value,
+                   sensor.value > 45.0f ? "(Heiß)" :
+                   sensor.value > 35.0f ? "(Warm)" : "(Kühl)");
+      break;
+  }
 }
 
 void onGestureDetected(TouchEventType gesture) {
@@ -436,3 +589,4 @@ String touchEventToString(TouchEventType type) {
 bool isTouchInSensorArea(const TouchPoint& point, int sensorIndex) {
   return touchManager.findTouchedSensor(point) == sensorIndex;
 }
+

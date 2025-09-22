@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 #include <bb_captouch.h>
+#include <XPT2046_Touchscreen.h>
+#include <SPI.h>
 #include "config.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -9,11 +11,19 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 namespace TouchConfig {
-  // JC2432W328 CST820 Pin Configuration
+  // JC2432W328 I2C Touch Controller Pin Configuration (CST820)
+  // Funktionierende Pins vom CST820 Test
   const int SDA_PIN = 33;
   const int SCL_PIN = 32;
   const int INT_PIN = 21;
   const int RESET_PIN = 25;
+
+  // JC2432W328 SPI Touch Controller Pin Configuration (XPT2046)
+  const int XPT_CS_PIN = 33;
+  const int XPT_IRQ_PIN = 36;
+  const int XPT_MOSI_PIN = 32;
+  const int XPT_MISO_PIN = 39;
+  const int XPT_CLK_PIN = 25;
 
   // Touch Settings
   const int MAX_TOUCH_POINTS = 5;
@@ -100,9 +110,16 @@ struct TouchArea {
 //                              TOUCH MANAGER CLASS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+enum TouchControllerType {
+  TOUCH_CST820_I2C,
+  TOUCH_XPT2046_SPI
+};
+
 class TouchManager {
 private:
   BBCapTouch touch;
+  XPT2046_Touchscreen xptTouch;
+  TouchControllerType activeController;
   TouchState state;
   TouchArea touchAreas[System::SENSOR_COUNT];
   bool isInitialized;
@@ -172,3 +189,4 @@ void onLongPress(const TouchPoint& point);
 // Helper functions
 String touchEventToString(TouchEventType type);
 bool isTouchInSensorArea(const TouchPoint& point, int sensorIndex);
+
