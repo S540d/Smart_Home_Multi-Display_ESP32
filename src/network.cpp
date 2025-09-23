@@ -390,7 +390,7 @@ bool isValidSensorIndex(int index) {
 void calculatePowerDirections() {
   // Berechne Energiebilanz: PV-Erzeugung minus Hausverbrauch
   float energyBalance = pvPower - loadPower;
-  
+
   // Grid-Richtung bestimmen
   if (energyBalance > 0) {
     // PV-Überschuss: Normalerweise Einspeisung (außer Speicher lädt alles)
@@ -399,7 +399,7 @@ void calculatePowerDirections() {
     // PV-Defizit: Normalerweise Netzbezug
     isGridFeedIn = false; // Bezug
   }
-  
+
   // Speicher-Richtung: Heuristik basiert auf Energiebilanz
   if (energyBalance > 1.0f) {
     // Deutlicher PV-Überschuss: Speicher lädt wahrscheinlich
@@ -409,11 +409,12 @@ void calculatePowerDirections() {
     isStorageCharging = false;
   }
   // Bei geringem Unterschied: Richtung unverändert lassen
-  
+
   Serial.printf("Richtung: Grid=%s (%.1fkW), Storage=%s (%.1fkW), Balance=%.1fkW\n",
                 isGridFeedIn ? "Feed" : "Bezug", gridPower,
                 isStorageCharging ? "Laden" : "Entladen", storagePower, energyBalance);
 }
+
 
 
 void updatePVNetDisplay() {

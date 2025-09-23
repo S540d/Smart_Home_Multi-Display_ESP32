@@ -43,6 +43,8 @@ TFT_eSPI tft = TFT_eSPI();
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+// Kalibrierungs-System wird in TouchManager integriert
+
 // Daten-Container
 SensorData sensors[System::SENSOR_COUNT];
 SystemStatus systemStatus;
@@ -163,14 +165,22 @@ void loop() {
     }
     client.loop();
 
-    // Touch-Events verarbeiten
-    TouchEvent touchEvent = processTouchInput();
-    if (touchEvent.type != TOUCH_NONE) {
-      handleTouchEvent(touchEvent);
+    // Prüfe zuerst ob Kalibrierung aktiv ist
+    if (touchManager.isCalibrating()) {
+      if (touchManager.updateCalibration()) {
+        // Kalibrierung hat Display geändert - force redraw
+        renderManager.markFullRedrawRequired();
+      }
+    } else {
+      // Normale Touch-Events verarbeiten
+      TouchEvent touchEvent = processTouchInput();
+      if (touchEvent.type != TOUCH_NONE) {
+        handleTouchEvent(touchEvent);
+      }
     }
 
-    // Touch-Marker aktualisieren (abgelaufene entfernen)
-    updateTouchMarkers();
+    // Touch-Marker deaktiviert für bessere Performance
+    // updateTouchMarkers();
     
     // Periodische Updates
     if (now - lastSystemUpdate >= Timing::SYSTEM_UPDATE_INTERVAL) {
@@ -369,10 +379,10 @@ void handleCriticalError(const char* error) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void handleTouchEvent(const TouchEvent& event) {
-  // Touch-Markierung für ALLE Touch-Events anzeigen (außer MOVE)
-  if (event.type != TOUCH_MOVE && event.type != TOUCH_NONE) {
-    drawTouchMarker(event.point.x, event.point.y);
-  }
+  // Touch-Markierung deaktiviert für bessere Performance
+  // if (event.type != TOUCH_MOVE && event.type != TOUCH_NONE) {
+  //   drawTouchMarker(event.point.x, event.point.y);
+  // }
 
   switch (event.type) {
     case TOUCH_DOWN:
@@ -385,8 +395,12 @@ void handleTouchEvent(const TouchEvent& event) {
     case TOUCH_UP:
       // Touch wurde beendet - hier könnten Click-Actions implementiert werden
 
-      // ERST: Prüfe Zurück-Button auf Preis-Detail-Screen (hat Vorrang)
-      if (currentMode == PRICE_DETAIL_SCREEN) {
+      // ERST: Prüfe Zurück-Button auf allen Detail-Screens (hat Vorrang)
+      if (currentMode == PRICE_DETAIL_SCREEN ||
+          currentMode == OEKOSTROM_DETAIL_SCREEN ||
+          currentMode == WALLBOX_CONSUMPTION_SCREEN ||
+          currentMode == LADESTAND_SCREEN ||
+          currentMode == SETTINGS_SCREEN) {
         int backButtonX = 270 + antiBurnin.getOffsetX();
         int backButtonY = 10;
 
@@ -398,11 +412,67 @@ void handleTouchEvent(const TouchEvent& event) {
         }
       }
 
-      // DANN: Normale Sensor-Touch-Verarbeitung
-      if (event.sensorIndex >= 0) {
-        // Ökostrom-Box Touch (Sensor Index 0) - Wechsel zur Preis-Detail-Ansicht
-        if (event.sensorIndex == 0 && currentMode == HOME_SCREEN) {
-          currentMode = PRICE_DETAIL_SCREEN;
+      // Prüfe Settings-Screen Kalibrierungs-Buttons
+      if (currentMode == SETTINGS_SCREEN) {
+        if (touchManager.isCalibrating()) {
+          // Beenden-Button während Kalibrierung
+          int stopButtonX = 170 + antiBurnin.getOffsetX();
+          int stopButtonY = 90;
+          int stopButtonW = 100;
+          int stopButtonH = 30;
+
+          if (event.point.x >= stopButtonX && event.point.x <= stopButtonX + stopButtonW &&
+              event.point.y >= stopButtonY && event.point.y <= stopButtonY + stopButtonH) {
+            touchManager.stopCalibration();
+            renderManager.markFullRedrawRequired();
+            break;
+          }
+        } else {
+          // Start-Button wenn nicht kalibriert
+          int calibButtonX = 10 + antiBurnin.getOffsetX();
+          int calibButtonY = 90;
+          int calibButtonW = 150;
+          int calibButtonH = 30;
+
+          if (event.point.x >= calibButtonX && event.point.x <= calibButtonX + calibButtonW &&
+              event.point.y >= calibButtonY && event.point.y <= calibButtonY + calibButtonH) {
+            touchManager.startCalibration();
+            renderManager.markFullRedrawRequired();
+            break;
+          }
+        }
+      }
+
+      // DANN: Normale Sensor-Touch-Verarbeitung (nur auf Home-Screen)
+      if (event.sensorIndex >= 0 && currentMode == HOME_SCREEN) {
+        switch (event.sensorIndex) {
+          case 0: // Ökostrom-Box - Wechsel zur Ökostrom-Detail-Ansicht
+            currentMode = OEKOSTROM_DETAIL_SCREEN;
+            renderManager.markFullRedrawRequired();
+            break;
+
+          case 3: // Ladestand-Box - Wechsel zur Ladestand-Detail-Ansicht
+            currentMode = LADESTAND_SCREEN;
+            renderManager.markFullRedrawRequired();
+            break;
+
+          case 4: // Verbrauch-Box - Wechsel zur Wallbox-Verbrauch-Ansicht
+            currentMode = WALLBOX_CONSUMPTION_SCREEN;
+            renderManager.markFullRedrawRequired();
+            break;
+        }
+      }
+
+      // Prüfe freie Ecke (Position [2,2]) für Settings
+      if (currentMode == HOME_SCREEN) {
+        int settingsX = 220 + antiBurnin.getOffsetX();
+        int settingsY = 135;
+        int settingsW = Layout::SENSOR_BOX_WIDTH;
+        int settingsH = Layout::SENSOR_BOX_HEIGHT;
+
+        if (event.point.x >= settingsX && event.point.x <= settingsX + settingsW &&
+            event.point.y >= settingsY && event.point.y <= settingsY + settingsH) {
+          currentMode = SETTINGS_SCREEN;
           renderManager.markFullRedrawRequired();
         }
       }

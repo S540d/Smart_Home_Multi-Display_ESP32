@@ -47,13 +47,38 @@ void clearOldElements() {
 }
 
 void updateDisplay() {
-  if (currentMode == PRICE_DETAIL_SCREEN) {
-    drawPriceDetailScreen();
-    renderManager.clearAllFlags();
-    return;
-  }
+  switch (currentMode) {
+    case PRICE_DETAIL_SCREEN:
+      drawPriceDetailScreen();
+      renderManager.clearAllFlags();
+      return;
 
-  if (currentMode != HOME_SCREEN) return;
+    case OEKOSTROM_DETAIL_SCREEN:
+      drawOekostromDetailScreen();
+      renderManager.clearAllFlags();
+      return;
+
+    case WALLBOX_CONSUMPTION_SCREEN:
+      drawWallboxConsumptionScreen();
+      renderManager.clearAllFlags();
+      return;
+
+    case LADESTAND_SCREEN:
+      drawLadestandScreen();
+      renderManager.clearAllFlags();
+      return;
+
+    case SETTINGS_SCREEN:
+      drawSettingsScreen();
+      renderManager.clearAllFlags();
+      return;
+
+    case HOME_SCREEN:
+      break;
+
+    default:
+      return;
+  }
   
   
   // Anti-Burnin Change erfordert kompletten Redraw
@@ -152,8 +177,37 @@ void drawHomeScreen() {
       drawSensorBox(i);
       sensors[i].markRendered();
     }
+
+    // Settings-Box in der freien Ecke (Position [2,2])
+    int settingsX = 220 + offsetX;
+    int settingsY = 135;
+    tft.drawRoundRect(settingsX, settingsY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT,
+                      Layout::SENSOR_BOX_RADIUS, Colors::BORDER_MAIN);
+
+    // Settings-Symbol (Zahnrad-ähnlich)
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString("Settings", settingsX + 5, settingsY + 5, 1);
+
+    // Gear-Symbol
+    uint16_t gearColor = Colors::TEXT_MAIN;
+    int gearX = settingsX + Layout::SENSOR_BOX_WIDTH - 20;
+    int gearY = settingsY + Layout::SENSOR_BOX_HEIGHT/2;
+
+    // Einfaches Zahnrad-Symbol mit Kreisen
+    tft.drawCircle(gearX, gearY, 8, gearColor);
+    tft.drawCircle(gearX, gearY, 4, gearColor);
+
+    // Zähne des Zahnrads
+    for (int i = 0; i < 8; i++) {
+      float angle = i * 45.0f * PI / 180.0f;
+      int x1 = gearX + cos(angle) * 6;
+      int y1 = gearY + sin(angle) * 6;
+      int x2 = gearX + cos(angle) * 10;
+      int y2 = gearY + sin(angle) * 10;
+      tft.drawLine(x1, y1, x2, y2, gearColor);
+    }
   }
-  
+
   drawSystemInfo();
   drawNetworkStatus();  // Enthält jetzt auch OTA-Status
   drawTimeDisplay();
@@ -223,6 +277,177 @@ void drawPriceDetailScreen() {
   }
 
   Serial.println("Preis-Detail-Screen vollständig gezeichnet");
+}
+
+void drawOekostromDetailScreen() {
+  Serial.println("Zeichne Ökostrom-Detail-Screen...");
+
+  tft.fillScreen(Colors::BG_MAIN);
+  int offsetX = antiBurnin.getOffsetX();
+
+  // Titel
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Oekostrom Details", 10 + offsetX, 10, 2);
+
+  // Zurück-Button (oben rechts)
+  int backButtonX = 270 + offsetX;
+  int backButtonY = 10;
+  tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
+
+  // Aktueller Ökostrom-Anteil (groß anzeigen)
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Aktueller Anteil:", 10 + offsetX, 40, 2);
+
+  if (!sensors[0].isTimedOut) {
+    tft.setTextColor(Colors::TEXT_MAIN);
+    tft.drawString(sensors[0].formattedValue, 10 + offsetX, 65, 4);
+
+    // Status-Indikator basierend auf Ökostrom-Anteil
+    uint16_t statusColor = Colors::STATUS_RED;
+    const char* statusText = "Niedrig";
+
+    if (sensors[0].value > 80.0f) {
+      statusColor = Colors::STATUS_GREEN;
+      statusText = "Sehr gut";
+    } else if (sensors[0].value > 60.0f) {
+      statusColor = Colors::STATUS_YELLOW;
+      statusText = "Gut";
+    } else if (sensors[0].value > 40.0f) {
+      statusColor = Colors::STATUS_ORANGE;
+      statusText = "Mäßig";
+    }
+
+    drawIndicator(10 + offsetX, 110, statusColor, true);
+    tft.setTextColor(statusColor);
+    tft.drawString(statusText, 25 + offsetX, 105, 2);
+
+  } else {
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("--- %", 10 + offsetX, 65, 4);
+    tft.drawString("Keine Verbindung", 10 + offsetX, 105, 2);
+  }
+
+  // Verbessertes Day-Ahead Preis-Diagramm (24h-Verlauf)
+  if (dayAheadPrices.hasData) {
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString("Day-Ahead Preise (24h):", 10 + offsetX, 140, 1);
+
+    const int chartX = 10 + offsetX;
+    const int chartY = 160;
+    const int chartWidth = 280;
+    const int chartHeight = 50;
+
+    // Rahmen für das Diagramm
+    tft.drawRect(chartX, chartY, chartWidth, chartHeight, Colors::BORDER_MAIN);
+
+    // Finde Min/Max für Skalierung (alle 24 Stunden)
+    float minPrice = 999.0f;
+    float maxPrice = -999.0f;
+    int validCount = 0;
+
+    for (int i = 0; i < 24; i++) {
+      if (dayAheadPrices.prices[i].isValid) {
+        minPrice = min(minPrice, dayAheadPrices.prices[i].price);
+        maxPrice = max(maxPrice, dayAheadPrices.prices[i].price);
+        validCount++;
+      }
+    }
+
+    if (validCount > 0) {
+      float priceRange = maxPrice - minPrice;
+      if (priceRange < 0.01f) priceRange = 0.01f;
+
+      // Zeichne Preisverlauf als vertikale Balken
+      const int barWidth = chartWidth / 24;
+
+      for (int i = 0; i < 24; i++) {
+        if (dayAheadPrices.prices[i].isValid) {
+          float price = dayAheadPrices.prices[i].price;
+
+          // Höhe des Balkens basierend auf Preis
+          int barHeight = (int)((price - minPrice) / priceRange * (chartHeight - 4));
+          barHeight = max(2, barHeight);
+
+          // Farbe basierend auf Preis (relativ zu Min/Max)
+          uint16_t barColor = Colors::STATUS_GREEN;
+          if (price > (minPrice + priceRange * 0.75f)) {
+            barColor = Colors::STATUS_RED;      // Teuer
+          } else if (price > (minPrice + priceRange * 0.5f)) {
+            barColor = Colors::STATUS_ORANGE;   // Mittel
+          } else if (price > (minPrice + priceRange * 0.25f)) {
+            barColor = Colors::STATUS_YELLOW;   // Günstig
+          }
+          // else: Sehr günstig = grün
+
+          int barX = chartX + 2 + i * barWidth;
+          int barY = chartY + chartHeight - 2 - barHeight;
+
+          tft.fillRect(barX, barY, barWidth - 1, barHeight, barColor);
+
+          // Stundenmarkierung alle 4 Stunden
+          if (i % 4 == 0) {
+            tft.setTextColor(Colors::TEXT_LABEL);
+            char hourStr[4];
+            snprintf(hourStr, sizeof(hourStr), "%02d", i);
+            tft.drawString(hourStr, barX - 2, chartY + chartHeight + 2, 1);
+          }
+        }
+      }
+
+      // Durchschnittslinie
+      float avgPrice = 0.0f;
+      for (int i = 0; i < 24; i++) {
+        if (dayAheadPrices.prices[i].isValid) {
+          avgPrice += dayAheadPrices.prices[i].price;
+        }
+      }
+      avgPrice /= validCount;
+
+      int avgY = chartY + chartHeight - 2 - (int)((avgPrice - minPrice) / priceRange * (chartHeight - 4));
+      tft.drawLine(chartX + 2, avgY, chartX + chartWidth - 2, avgY, Colors::TEXT_MAIN);
+
+      // Preisinformationen
+      char priceInfo[64];
+      snprintf(priceInfo, sizeof(priceInfo), "Min: %.1fct  Ø: %.1fct  Max: %.1fct",
+               minPrice, avgPrice, maxPrice);
+      tft.setTextColor(Colors::TEXT_LABEL);
+      tft.drawString(priceInfo, 10 + offsetX, 218, 1);
+
+      // Aktuelle Stunde hervorheben (wenn Zeitdaten verfügbar)
+      if (systemStatus.timeValid) {
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo)) {
+          int currentHour = timeinfo.tm_hour;
+          if (currentHour < 24 && dayAheadPrices.prices[currentHour].isValid) {
+            int currentX = chartX + 2 + currentHour * barWidth;
+            tft.drawRect(currentX - 1, chartY + 1, barWidth + 1, chartHeight - 2, Colors::TEXT_MAIN);
+
+            // Aktueller Preis anzeigen
+            char currentPriceStr[16];
+            snprintf(currentPriceStr, sizeof(currentPriceStr), "Jetzt: %.1fct",
+                     dayAheadPrices.prices[currentHour].price);
+            tft.setTextColor(Colors::TEXT_MAIN);
+            tft.drawString(currentPriceStr, 10 + offsetX, 230, 1);
+          }
+        }
+      }
+
+    } else {
+      tft.setTextColor(Colors::TEXT_TIMEOUT);
+      tft.drawString("Keine gültigen Preisdaten", chartX + 10, chartY + 20, 1);
+    }
+  } else {
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("Keine Day-Ahead Daten verfügbar", 10 + offsetX, 160, 1);
+  }
+
+  // System-Info (Position angepasst für neues Chart)
+  // MQTT Topic Info entfernt um Platz zu schaffen
+  tft.drawString("home/PV/Share_renewable", 85 + offsetX, 225, 1);
+
+  Serial.println("Ökostrom-Detail-Screen vollständig gezeichnet");
 }
 
 void drawPriceChart(int offsetX) {
@@ -1196,4 +1421,296 @@ void updateTouchMarkers() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//                              NEUE SUBPAGE-SCREENS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void drawWallboxConsumptionScreen() {
+  Serial.println("Zeichne Wallbox-Verbrauch-Screen...");
+
+  tft.fillScreen(Colors::BG_MAIN);
+  int offsetX = antiBurnin.getOffsetX();
+
+  // Titel
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Wallbox Verbrauch", 10 + offsetX, 10, 2);
+
+  // Zurück-Button (oben rechts)
+  int backButtonX = 270 + offsetX;
+  int backButtonY = 10;
+  tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
+
+  // Wallbox Leistung (groß anzeigen)
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Aktuelle Leistung:", 10 + offsetX, 40, 2);
+
+  // Wallbox-Daten aus Sensor[5] (war ursprünglich Wallbox)
+  if (!sensors[5].isTimedOut) {
+    tft.setTextColor(Colors::TEXT_MAIN);
+    tft.drawString(sensors[5].formattedValue, 10 + offsetX, 65, 4);
+
+    // Status-Visualisierung
+    uint16_t statusColor = Colors::STATUS_GREEN;
+    const char* statusText = "Standby";
+
+    if (sensors[5].value > 0.5f) {
+      statusColor = Colors::STATUS_BLUE;
+      statusText = "Laden";
+    } else if (sensors[5].value > 0.1f) {
+      statusColor = Colors::STATUS_YELLOW;
+      statusText = "Bereit";
+    }
+
+    // Status-Kreis und Text
+    drawIndicator(10 + offsetX, 120, statusColor, true);
+    tft.setTextColor(statusColor);
+    tft.drawString(statusText, 25 + offsetX, 115, 2);
+
+  } else {
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("--- W", 10 + offsetX, 65, 4);
+    tft.drawString("Keine Verbindung", 10 + offsetX, 115, 2);
+  }
+
+  // Auto-Ladestand
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Ladestand Auto:", 10 + offsetX, 150, 1);
+
+  if (!sensors[3].isTimedOut) {
+    tft.setTextColor(Colors::TEXT_MAIN);
+    tft.drawString(sensors[3].formattedValue, 10 + offsetX, 165, 2);
+
+    // Progress Bar für Auto-Ladestand
+    int progressX = 10 + offsetX;
+    int progressY = 185;
+    int progressWidth = 250;
+    drawProgressBar(progressX, progressY, progressWidth, sensors[3].value, true);
+  } else {
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("--- %", 10 + offsetX, 165, 2);
+  }
+
+  // Hausspeicher-Ladestand (simuliert basierend auf Lade-/Entlade-Status)
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Hausspeicher:", 10 + offsetX, 200, 1);
+
+  // Simulierter Speicher-Ladestand basierend auf aktueller Speicher-Aktivität
+  float storageLevel = 65.0f; // Basis-Wert 65%
+
+  // Dynamische Anpassung basierend auf Speicher-Aktivität
+  if (storagePower > 0.1f) {
+    if (isStorageCharging) {
+      // Beim Laden: höherer Ladestand anzeigen
+      storageLevel = min(95.0f, 65.0f + (storagePower * 5.0f));
+    } else {
+      // Beim Entladen: niedrigerer Ladestand anzeigen
+      storageLevel = max(15.0f, 65.0f - (storagePower * 3.0f));
+    }
+  }
+
+  // Status-Text basierend auf Lade-/Entlade-Zustand
+  const char* storageStatusText = "Standby";
+  uint16_t storageStatusColor = Colors::TEXT_MAIN;
+
+  if (storagePower > 0.1f) {
+    if (isStorageCharging) {
+      storageStatusText = "Laden";
+      storageStatusColor = Colors::STATUS_GREEN;
+    } else {
+      storageStatusText = "Entladen";
+      storageStatusColor = Colors::STATUS_ORANGE;
+    }
+  }
+
+  tft.setTextColor(storageStatusColor);
+  tft.drawString(String(storageLevel, 0) + "% (" + storageStatusText + ")", 10 + offsetX, 215, 1);
+
+  // Progress Bar für Hausspeicher
+  int storageProgressX = 10 + offsetX;
+  int storageProgressY = 230;
+  int storageProgressWidth = 250;
+  drawProgressBar(storageProgressX, storageProgressY, storageProgressWidth, storageLevel, false);
+
+  // System-Info unter den Progress-Bars (kürzer halten)
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("MQTT: home/PV/WallboxPower", 10 + offsetX, 245, 1);
+
+  Serial.println("Wallbox-Verbrauch-Screen vollständig gezeichnet");
+}
+
+void drawLadestandScreen() {
+  Serial.println("Zeichne Ladestand-Screen...");
+
+  tft.fillScreen(Colors::BG_MAIN);
+  int offsetX = antiBurnin.getOffsetX();
+
+  // Titel
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Ladestand", 10 + offsetX, 10, 2);
+
+  // Zurück-Button (oben rechts)
+  int backButtonX = 270 + offsetX;
+  int backButtonY = 10;
+  tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
+
+  // Hausspeicher-Sektion
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Hausspeicher:", 10 + offsetX, 40, 2);
+
+  // Simulierter Speicher-Ladestand basierend auf aktueller Speicher-Aktivität
+  float storageLevel = 65.0f; // Basis-Wert 65%
+
+  // Dynamische Anpassung basierend auf Speicher-Aktivität
+  if (storagePower > 0.1f) {
+    if (isStorageCharging) {
+      // Beim Laden: höherer Ladestand anzeigen
+      storageLevel = min(95.0f, 65.0f + (storagePower * 5.0f));
+    } else {
+      // Beim Entladen: niedrigerer Ladestand anzeigen
+      storageLevel = max(15.0f, 65.0f - (storagePower * 3.0f));
+    }
+  }
+
+  // Status-Text basierend auf Lade-/Entlade-Zustand
+  const char* storageStatusText = "Standby";
+  uint16_t storageStatusColor = Colors::TEXT_MAIN;
+
+  if (storagePower > 0.1f) {
+    if (isStorageCharging) {
+      storageStatusText = "Laden";
+      storageStatusColor = Colors::STATUS_GREEN;
+    } else {
+      storageStatusText = "Entladen";
+      storageStatusColor = Colors::STATUS_ORANGE;
+    }
+  }
+
+  // Großer Prozent-Wert
+  tft.setTextColor(storageStatusColor);
+  tft.drawString(String(storageLevel, 0) + "%", 10 + offsetX, 65, 4);
+
+  // Status-Text
+  tft.setTextColor(storageStatusColor);
+  tft.drawString(storageStatusText, 10 + offsetX, 105, 2);
+
+  // Leistung anzeigen wenn aktiv
+  if (storagePower > 0.1f) {
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString("Leistung:", 10 + offsetX, 130, 1);
+    tft.setTextColor(Colors::TEXT_MAIN);
+    tft.drawString(String(storagePower, 1) + " kW", 80 + offsetX, 130, 1);
+  }
+
+  // Progress Bar für Hausspeicher-Ladestand
+  int storageProgressX = 10 + offsetX;
+  int storageProgressY = 150;
+  int storageProgressWidth = 280;
+  drawProgressBar(storageProgressX, storageProgressY, storageProgressWidth, storageLevel, true);
+
+  // PKW-Ladestand-Platzhalter (für zukünftige Implementierung)
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("PKW-Ladestand:", 10 + offsetX, 185, 2);
+
+  if (!sensors[3].isTimedOut) {
+    tft.setTextColor(Colors::TEXT_MAIN);
+    tft.drawString(sensors[3].formattedValue, 10 + offsetX, 205, 2);
+
+    // Progress Bar für PKW-Ladestand (aktuell noch Sensor[3])
+    int carProgressX = 10 + offsetX;
+    int carProgressY = 220;
+    int carProgressWidth = 280;
+    drawProgressBar(carProgressX, carProgressY, carProgressWidth, sensors[3].value, true);
+  } else {
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("Nicht verfügbar", 10 + offsetX, 205, 2);
+  }
+
+  Serial.println("Ladestand-Screen vollständig gezeichnet");
+}
+
+void drawSettingsScreen() {
+  Serial.println("Zeichne Settings-Screen...");
+
+  tft.fillScreen(Colors::BG_MAIN);
+  int offsetX = antiBurnin.getOffsetX();
+
+  // Titel
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Einstellungen", 10 + offsetX, 10, 2);
+
+  // Zurück-Button (oben rechts)
+  int backButtonX = 270 + offsetX;
+  int backButtonY = 10;
+  tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
+
+  // Touch-Kalibrierung Sektion
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("Touch-Kalibrierung:", 10 + offsetX, 45, 2);
+
+  // Kalibrierungs-Status
+  bool hasCalibration = touchManager.hasValidCalibration();
+  uint16_t statusColor = hasCalibration ? Colors::STATUS_GREEN : Colors::STATUS_ORANGE;
+  const char* statusText = hasCalibration ? "Kalibriert" : "Nicht kalibriert";
+
+  drawIndicator(10 + offsetX, 75, statusColor, true);
+  tft.setTextColor(statusColor);
+  tft.drawString(statusText, 25 + offsetX, 70, 1);
+
+  // Kalibrierungs-Button
+  int calibButtonX = 10 + offsetX;
+  int calibButtonY = 90;
+  int calibButtonW = 150;
+  int calibButtonH = 30;
+
+  uint16_t buttonColor = touchManager.isCalibrating() ? Colors::STATUS_YELLOW : Colors::BORDER_MAIN;
+  tft.drawRoundRect(calibButtonX, calibButtonY, calibButtonW, calibButtonH, 5, buttonColor);
+
+  tft.setTextColor(Colors::TEXT_MAIN);
+  const char* buttonText = touchManager.isCalibrating() ? "Kalibrierung aktiv..." : "Kalibrierung starten";
+  tft.drawString(buttonText, calibButtonX + 5, calibButtonY + 8, 1);
+
+  // Kalibrierungs-Anweisungen
+  if (touchManager.isCalibrating()) {
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString("Kalibrierung aktiv:", 10 + offsetX, 130, 1);
+    tft.drawString("Touchscreen wird neu", 10 + offsetX, 145, 1);
+    tft.drawString("kalibriert...", 10 + offsetX, 160, 1);
+
+    // Beenden-Button während Kalibrierung
+    int stopButtonX = 170 + offsetX;
+    int stopButtonY = 90;
+    int stopButtonW = 100;
+    int stopButtonH = 30;
+
+    tft.drawRoundRect(stopButtonX, stopButtonY, stopButtonW, stopButtonH, 5, Colors::STATUS_RED);
+    tft.setTextColor(Colors::TEXT_MAIN);
+    tft.drawString("Beenden", stopButtonX + 25, stopButtonY + 8, 1);
+
+  } else {
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString("Touch-Genauigkeit optimieren", 10 + offsetX, 130, 1);
+    tft.drawString("durch Neu-Kalibrierung", 10 + offsetX, 145, 1);
+  }
+
+  // System-Info
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString("System-Information:", 10 + offsetX, 180, 1);
+
+  String firmwareInfo = "Firmware: ESP32 Rev2";
+  tft.drawString(firmwareInfo, 10 + offsetX, 195, 1);
+
+  String uptimeInfo = "Uptime: " + String(systemStatus.uptime / 3600) + "h";
+  tft.drawString(uptimeInfo, 10 + offsetX, 210, 1);
+
+  String memInfo = "RAM: " + String(systemStatus.freeHeap / 1024) + "KB frei";
+  tft.drawString(memInfo, 10 + offsetX, 225, 1);
+
+  Serial.println("Settings-Screen vollständig gezeichnet");
+}
 

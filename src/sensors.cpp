@@ -120,7 +120,7 @@ void initializeSensorLayouts() {
     // Reihe 2: Power/Charge-Gruppe  
     {"Ladestand", "%",  10,  85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, true,  false, false},  // [3]
     {"Verbrauch", "kW", 115, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, false, true}, // [4] Consumption Bar
-    {"Wallbox",   "W",  220, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, false, false},  // [5] Wallbox nach rechts
+    {"PV-Erzeugung", "W",  220, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, false, false},  // [5] PV-Erzeugung (war Wallbox)
     // Reihe 3: Umwelt-Gruppe (ohne untere rechte Ecke)
     {"Aussen",    "C",  10,  135, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, false, false}, // [6]
     {"Wasser",    "C",  115, 135, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, true,  false}  // [7] Wasser nach links

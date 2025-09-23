@@ -19,12 +19,18 @@ const int EEPROM_CALIBRATION_MAGIC = 0x54434C; // "TCL" (Touch Calibration)
 
 TouchManager::TouchManager() : xptTouch(TouchConfig::XPT_CS_PIN, TouchConfig::XPT_IRQ_PIN),
                                  isInitialized(false), calibrationMode(false), hasCalibration(false),
-                                 activeController(TOUCH_CST820_I2C) {
+                                 activeController(TOUCH_CST820_I2C), currentCalPoint(0), calibrationActive(false) {
   // Initialize calibration matrix with CST820-optimized transform
   // Basierend auf JC2432W328 Display (320x240) mit 90° Rotation
   calibrationMatrix[0] = 320.0f/240.0f; calibrationMatrix[1] = 0.0f; calibrationMatrix[2] = 0.0f;
   calibrationMatrix[3] = 0.0f; calibrationMatrix[4] = 240.0f/320.0f; calibrationMatrix[5] = 0.0f;
   hasCalibration = true; // Verwende Standard-Kalibrierung
+
+  // Initialize calibration points (4 corners)
+  calPoints[0] = {30, 30, 0, 0, false};      // Top left
+  calPoints[1] = {290, 30, 0, 0, false};     // Top right
+  calPoints[2] = {290, 210, 0, 0, false};    // Bottom right
+  calPoints[3] = {30, 210, 0, 0, false};     // Bottom left
 }
 
 bool TouchManager::initialize() {
@@ -336,11 +342,24 @@ void TouchManager::applyCalibration(TouchPoint& point) {
 }
 
 void TouchManager::startCalibration() {
+  Serial.println("🎯 Starte echte 4-Punkt-Touch-Kalibrierung...");
+
+  calibrationActive = true;
   calibrationMode = true;
-  // UI will handle calibration display
+  currentCalPoint = 0;
+
+  // Reset alle Kalibrierungspunkte
+  for (int i = 0; i < 4; i++) {
+    calPoints[i].captured = false;
+  }
+
+  // Zeige ersten Kalibrierungspunkt
+  showCalibrationPoint();
 }
 
 void TouchManager::stopCalibration() {
+  Serial.println("⏹️ Kalibrierung beendet");
+  calibrationActive = false;
   calibrationMode = false;
   saveCalibration();
 }
@@ -422,6 +441,147 @@ void TouchManager::printCalibrationInfo() {
   Serial.printf("   [%.3f %.3f %.3f]\n", calibrationMatrix[0], calibrationMatrix[1], calibrationMatrix[2]);
   Serial.printf("   [%.3f %.3f %.3f]\n", calibrationMatrix[3], calibrationMatrix[4], calibrationMatrix[5]);
   Serial.printf("   Gültig: %s\n", hasCalibration ? "JA" : "NEIN");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//                              ERWEITERTE KALIBRIERUNGS-FUNKTIONEN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+bool TouchManager::updateCalibration() {
+  if (!calibrationActive) return false;
+  return handleCalibrationTouch();
+}
+
+void TouchManager::showCalibrationPoint() {
+  extern TFT_eSPI tft;
+  extern AntiBurninManager antiBurnin;
+
+  if (currentCalPoint >= 4) return;
+
+  CalibrationPoint& point = calPoints[currentCalPoint];
+  tft.fillScreen(Colors::BG_MAIN);
+  tft.setTextColor(Colors::TEXT_MAIN);
+
+  int offsetX = antiBurnin.getOffsetX();
+
+  // Titel und Anleitung
+  tft.drawString("Touch-Kalibrierung", 10 + offsetX, 10, 2);
+
+  char instruction[50];
+  sprintf(instruction, "Punkt %d/4: Druecke das Kreuz", currentCalPoint + 1);
+  tft.setTextColor(Colors::TEXT_LABEL);
+  tft.drawString(instruction, 10 + offsetX, 40, 1);
+
+  // Großes Ziel-Kreuz zeichnen
+  int crossSize = 20;
+  uint16_t crossColor = Colors::STATUS_RED;
+  int crossX = point.screenX + offsetX;
+  int crossY = point.screenY;
+
+  tft.drawLine(crossX - crossSize, crossY, crossX + crossSize, crossY, crossColor);
+  tft.drawLine(crossX, crossY - crossSize, crossX, crossY + crossSize, crossColor);
+  tft.fillCircle(crossX, crossY, 4, crossColor);
+  tft.drawCircle(crossX, crossY, 8, crossColor);
+
+  Serial.printf("🎯 Zeige Kalibrierungspunkt %d: (%d,%d)\n",
+                currentCalPoint + 1, point.screenX, point.screenY);
+}
+
+bool TouchManager::handleCalibrationTouch() {
+  TOUCHINFO touchInfo;
+  int touchCount = 0;
+
+  try {
+    touchCount = touch.getSamples(&touchInfo);
+  } catch (...) {
+    return false;
+  }
+
+  if (touchCount > 0 && touchInfo.count > 0) {
+    CalibrationPoint& point = calPoints[currentCalPoint];
+
+    point.touchX = touchInfo.x[0];
+    point.touchY = touchInfo.y[0];
+    point.captured = true;
+
+    Serial.printf("✅ Punkt %d erfasst: Screen(%d,%d) -> Touch(%d,%d)\n",
+                 currentCalPoint + 1, point.screenX, point.screenY,
+                 point.touchX, point.touchY);
+
+    extern TFT_eSPI tft;
+    extern AntiBurninManager antiBurnin;
+    int offsetX = antiBurnin.getOffsetX();
+
+    tft.fillCircle(point.screenX + offsetX, point.screenY, 12, Colors::STATUS_GREEN);
+    delay(800);
+
+    currentCalPoint++;
+
+    if (currentCalPoint >= 4) {
+      calculateAdvancedCalibration();
+      calibrationActive = false;
+      showCalibrationComplete();
+    } else {
+      showCalibrationPoint();
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+void TouchManager::calculateAdvancedCalibration() {
+  Serial.println("🔢 Berechne erweiterte 4-Punkt-Kalibrierung...");
+
+  CalibrationPoint& topLeft = calPoints[0];
+  CalibrationPoint& bottomRight = calPoints[2];
+
+  float screenWidth = bottomRight.screenX - topLeft.screenX;
+  float screenHeight = bottomRight.screenY - topLeft.screenY;
+  float touchWidth = bottomRight.touchX - topLeft.touchX;
+  float touchHeight = bottomRight.touchY - topLeft.touchY;
+
+  bool swapXY = (abs(touchWidth) < abs(touchHeight));
+  if (swapXY) {
+    touchWidth = bottomRight.touchY - topLeft.touchY;
+    touchHeight = bottomRight.touchX - topLeft.touchX;
+  }
+
+  if (touchWidth != 0 && touchHeight != 0) {
+    float scaleX = screenWidth / touchWidth;
+    float scaleY = screenHeight / touchHeight;
+
+    float touchBaseX = swapXY ? topLeft.touchY : topLeft.touchX;
+    float touchBaseY = swapXY ? topLeft.touchX : topLeft.touchY;
+
+    calibrationMatrix[0] = scaleX;
+    calibrationMatrix[1] = 0.0f;
+    calibrationMatrix[2] = topLeft.screenX - (touchBaseX * scaleX);
+    calibrationMatrix[3] = 0.0f;
+    calibrationMatrix[4] = scaleY;
+    calibrationMatrix[5] = topLeft.screenY - (touchBaseY * scaleY);
+
+    hasCalibration = true;
+
+    Serial.printf("   ScaleX: %.3f, ScaleY: %.3f\n", scaleX, scaleY);
+    Serial.printf("   SwapXY: %s\n", swapXY ? "true" : "false");
+  }
+}
+
+void TouchManager::showCalibrationComplete() {
+  extern TFT_eSPI tft;
+  extern AntiBurninManager antiBurnin;
+  int offsetX = antiBurnin.getOffsetX();
+
+  tft.fillScreen(Colors::BG_MAIN);
+  tft.setTextColor(Colors::STATUS_GREEN);
+  tft.drawString("Kalibrierung erfolgreich!", 10 + offsetX, 50, 2);
+
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("Touch-Genauigkeit optimiert", 10 + offsetX, 90, 1);
+
+  delay(3000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

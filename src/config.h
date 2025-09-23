@@ -143,9 +143,9 @@ namespace NetworkConfig {
       "home/PV/Share_renewable",       // [0] Ökostrom (Reihe 1)
       "home/PV/EnergyPrice",           // [1] Preis (Reihe 1)
       "home/stocks/CL2PACurr",         // [2] Aktie (Reihe 1) - war [7]
-      "home/PV/chargingLevel",         // [3] Ladestand (Reihe 2)
+      "home/PV/chargingLevel",         // [3] Ladestand des Hausspeichers (Reihe 2)
       "",                              // [4] PV/Netz (intern berechnet, kein MQTT)
-      "home/PV/WallboxPower",          // [5] Wallbox (Reihe 2) - war [2]
+      "home/PV/PVCurrentPower",          // [5] PV-Erzeugung (war Wallbox)
       "home/Weather/OutdoorTemperature", // [6] Außen (Reihe 3)
       "home/Heating/WaterTemperature"   // [7] Wasser (Reihe 3) - war [5]
     };
@@ -154,13 +154,13 @@ namespace NetworkConfig {
     const char* const stockPreviousClose = "home/stocks/CL2PAPrevClose";
     const char* const historyRequest = "display/history_request";
     const char* const historyResponse = "display/history_response";
-    const char* const energyMarketPriceDayAhead = "EnergyMarketPriceDayAhead";
+    const char* const energyMarketPriceDayAhead = "home/PV/EnergyPriceDayAhead";
     
     // Power Management Topics
-    const char* const pvPower = "home/PV/CurrentPower";          // PV-Erzeugung
+    const char* const pvPower = "home/PV/PVCurrentPower";          // PV-Erzeugung
     const char* const gridPower = "home/PV/GridCurrentPower";     // Netzbezug/Einspeisung
     const char* const loadPower = "home/PV/LoadCurrentPower";     // Hausverbrauch
-    const char* const storagePower = "home/PV/StorageCurrentPower"; // Speicher Lade/Entladung
+    const char* const storagePower = "home/PV/StorageCurrentPower"; // Speicher Lade/Entladung ohne Vorzeichen
   };
   
   extern const MqttTopics topics;
@@ -427,7 +427,15 @@ struct RenderManager {
 };
 
 // Display-Modi
-enum DisplayMode { HOME_SCREEN, HISTORY_SCREEN, PRICE_DETAIL_SCREEN };
+enum DisplayMode {
+  HOME_SCREEN,
+  HISTORY_SCREEN,
+  PRICE_DETAIL_SCREEN,
+  OEKOSTROM_DETAIL_SCREEN,
+  WALLBOX_CONSUMPTION_SCREEN,
+  LADESTAND_SCREEN,
+  SETTINGS_SCREEN
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              PRICE DETAIL DATA STRUCTURES

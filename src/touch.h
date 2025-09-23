@@ -132,12 +132,28 @@ private:
   float calibrationMatrix[6];  // Touch to screen transformation matrix
   bool hasCalibration;
 
+  // Extended calibration system
+  struct CalibrationPoint {
+    int screenX, screenY;
+    int touchX, touchY;
+    bool captured;
+  } calPoints[4];
+
+  int currentCalPoint;
+  bool calibrationActive;
+
   // Internal methods
   void updateTouchAreas();
   TouchEventType detectGesture(const TouchPoint& start, const TouchPoint& end, unsigned long duration);
   void applyCalibration(TouchPoint& point);
   void saveCalibration();
   void loadCalibration();
+
+  // Extended calibration methods
+  void showCalibrationPoint();
+  bool handleCalibrationTouch();
+  void calculateAdvancedCalibration();
+  void showCalibrationComplete();
 
 public:
   TouchManager();
@@ -152,7 +168,8 @@ public:
   // Calibration
   void startCalibration();
   void stopCalibration();
-  bool isCalibrating() const { return calibrationMode; }
+  bool isCalibrating() const { return calibrationActive; }
+  bool updateCalibration(); // Returns true if display update needed
   void setCalibrationPoint(int index, const TouchPoint& screenPoint, const TouchPoint& touchPoint);
 
   // Touch area management

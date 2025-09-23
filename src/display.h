@@ -32,6 +32,10 @@ extern DisplayMode currentMode;
 // Price Detail Data
 extern DayAheadPriceData dayAheadPrices;
 
+// Touch-System für Settings
+#include "touch.h"
+extern TouchManager touchManager;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              DISPLAY-FUNKTIONEN
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -40,6 +44,10 @@ extern DayAheadPriceData dayAheadPrices;
 void updateDisplay();
 void drawHomeScreen();
 void drawPriceDetailScreen();
+void drawOekostromDetailScreen();
+void drawWallboxConsumptionScreen();
+void drawLadestandScreen();
+void drawSettingsScreen();
 void drawPriceChart(int offsetX);
 void clearOldElements();
 
