@@ -19,11 +19,12 @@ namespace TouchConfig {
   const int RESET_PIN = 25;
 
   // JC2432W328 SPI Touch Controller Pin Configuration (XPT2046)
-  const int XPT_CS_PIN = 33;
+  // Geänderte Pins um Konflikt mit CST820 zu vermeiden
+  const int XPT_CS_PIN = 5;
   const int XPT_IRQ_PIN = 36;
-  const int XPT_MOSI_PIN = 32;
-  const int XPT_MISO_PIN = 39;
-  const int XPT_CLK_PIN = 25;
+  const int XPT_MOSI_PIN = 23;
+  const int XPT_MISO_PIN = 19;
+  const int XPT_CLK_PIN = 18;
 
   // Touch Settings
   const int MAX_TOUCH_POINTS = 5;
@@ -116,13 +117,15 @@ enum TouchControllerType {
 };
 
 class TouchManager {
+public:
+  bool isInitialized;
+
 private:
   BBCapTouch touch;
   XPT2046_Touchscreen xptTouch;
   TouchControllerType activeController;
   TouchState state;
   TouchArea touchAreas[System::SENSOR_COUNT];
-  bool isInitialized;
   bool calibrationMode;
 
   // Calibration data

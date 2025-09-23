@@ -3,6 +3,22 @@
 #include <cmath>
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//                              TOUCH-MARKIERUNG
+// ═══════════════════════════════════════════════════════════════════════════════
+
+struct TouchMarker {
+  int x, y;
+  unsigned long timestamp;
+  bool active;
+
+  TouchMarker() : x(0), y(0), timestamp(0), active(false) {}
+};
+
+// Mehrere Touch-Markierungen für Multi-Touch
+TouchMarker touchMarkers[5];
+int nextMarkerIndex = 0;
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //                              HAUPT-RENDER-FUNKTIONEN
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1111,6 +1127,73 @@ uint16_t getSignalBars(int rssi) {
   if (rssi > -70) return 2;
   if (rssi > -80) return 1;
   return 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//                              TOUCH-VISUALISIERUNG
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void drawTouchMarker(int x, int y) {
+  // Neue Touch-Markierung hinzufügen
+  TouchMarker& marker = touchMarkers[nextMarkerIndex];
+
+  // Alte Markierung löschen, falls vorhanden
+  if (marker.active) {
+    // Lösche alten Kreis (übermale mit Hintergrundfarbe)
+    tft.fillCircle(marker.x, marker.y, 12, Colors::BG_MAIN);
+  }
+
+  // Neue Markierung setzen
+  marker.x = x;
+  marker.y = y;
+  marker.timestamp = millis();
+  marker.active = true;
+
+  // Zeichne Touch-Markierung: Gefüllter Kreis mit Rahmen
+  tft.fillCircle(x, y, 10, Colors::TOUCH_MARKER);
+  tft.drawCircle(x, y, 10, Colors::TOUCH_BORDER);
+  tft.fillCircle(x, y, 5, Colors::TOUCH_BORDER);
+
+  // Koordinaten anzeigen (für Debug)
+  char coordText[20];
+  snprintf(coordText, sizeof(coordText), "(%d,%d)", x, y);
+  tft.setTextColor(Colors::TEXT_MAIN, Colors::BG_MAIN);
+  tft.drawString(coordText, x + 15, y - 5, 1);
+
+  Serial.printf("🎯 Touch-Markierung bei (%d,%d) - Marker %d\n", x, y, nextMarkerIndex);
+
+  // Zum nächsten Marker-Slot wechseln (Ring-Buffer)
+  nextMarkerIndex = (nextMarkerIndex + 1) % 5;
+}
+
+void updateTouchMarkers() {
+  unsigned long now = millis();
+  bool hasExpiredMarkers = false;
+
+  // Prüfe alle aktiven Marker auf Ablauf
+  for (int i = 0; i < 5; i++) {
+    TouchMarker& marker = touchMarkers[i];
+
+    if (marker.active && (now - marker.timestamp) > Timing::TOUCH_MARKER_DURATION_MS) {
+      // Marker ist abgelaufen - löschen
+      tft.fillCircle(marker.x, marker.y, 12, Colors::BG_MAIN);
+
+      // Koordinaten-Text auch löschen
+      tft.fillRect(marker.x + 15, marker.y - 8, 50, 16, Colors::BG_MAIN);
+
+      marker.active = false;
+      hasExpiredMarkers = true;
+
+      Serial.printf("⏰ Touch-Markierung %d abgelaufen nach %lums\n",
+                   i, now - marker.timestamp);
+    }
+  }
+
+  // Wenn Marker abgelaufen sind, markiere partiellen Redraw
+  if (hasExpiredMarkers) {
+    renderManager.markFullRedrawRequired();
+    Serial.println("🔄 Touch-Marker Redraw ausgelöst");
+  }
 }
 
 

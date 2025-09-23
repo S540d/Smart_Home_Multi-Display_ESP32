@@ -58,6 +58,10 @@ void drawIndicator(int x, int y, uint16_t color, bool withBorder = true);
 void drawEcoVisualization(int x, int y);
 void drawTrendArrow(int x, int y, SensorData::TrendDirection trend, int sensorIndex);
 
+// Touch-Visualisierung
+void drawTouchMarker(int x, int y);
+void updateTouchMarkers();
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              HILFSFUNKTIONEN FÜR FARBEN UND LAYOUT
 // ═══════════════════════════════════════════════════════════════════════════════

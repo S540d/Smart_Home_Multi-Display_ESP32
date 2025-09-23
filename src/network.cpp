@@ -527,69 +527,68 @@ void updatePVNetDisplay() {
 }
 
 void processDayAheadPriceData(const String& message) {
-  Serial.printf("📊 Day-Ahead Preisdaten empfangen: %s\n", message.c_str());
+  Serial.printf("📊 Day-Ahead Preisdaten empfangen (%d Zeichen)\n", message.length());
 
-  // JSON-Parser für Day-Ahead Daten
-  // Erwartetes Format: {"date":"2024-12-01","prices":[{"hour":"00:00","price":12.34},...]}
+  // Neues Format: [{"t":timestamp,"v":value},{"t":timestamp,"v":value},...]
   extern DayAheadPriceData dayAheadPrices;
 
-  // Einfache JSON-Parsing (ohne ArduinoJson für Speichereffizienz)
-  // In Produktionsumgebung sollte echte JSON-Parsing verwendet werden
-
-  // Datum extrahieren
-  int dateStart = message.indexOf("\"date\":\"") + 8;
-  if (dateStart > 7) {
-    int dateEnd = message.indexOf("\"", dateStart);
-    if (dateEnd > dateStart) {
-      String dateStr = message.substring(dateStart, dateEnd);
-      strncpy(dayAheadPrices.date, dateStr.c_str(), sizeof(dayAheadPrices.date) - 1);
-      dayAheadPrices.date[sizeof(dayAheadPrices.date) - 1] = '\0';
-    }
-  }
-
-  // Preise extrahieren (vereinfachte Parsing)
   dayAheadPrices.clear();
 
-  int pricesStart = message.indexOf("\"prices\":[");
-  if (pricesStart != -1) {
-    int currentPos = pricesStart + 10; // Nach "prices":["
+  // Aktuelles Datum setzen (da nicht im JSON enthalten)
+  time_t now = time(nullptr);
+  struct tm* timeinfo = localtime(&now);
+  strftime(dayAheadPrices.date, sizeof(dayAheadPrices.date), "%d.%m.%Y", timeinfo);
+
+  Serial.printf("   Datum gesetzt auf: %s\n", dayAheadPrices.date);
+
+  // Parse Array-Format: [{"t":timestamp,"v":value},...]
+  if (message.startsWith("[") && message.endsWith("]")) {
+    int currentPos = 1; // Nach "["
     int hourIndex = 0;
 
-    while (currentPos < message.length() && hourIndex < 24) {
-      // Suche nach hour
-      int hourStart = message.indexOf("\"hour\":\"", currentPos);
-      if (hourStart == -1) break;
-      hourStart += 8;
+    while (currentPos < message.length() - 1 && hourIndex < 24) {
+      // Suche nach {"t":
+      int tStart = message.indexOf("\"t\":", currentPos);
+      if (tStart == -1) break;
+      tStart += 4;
 
-      int hourEnd = message.indexOf("\"", hourStart);
-      if (hourEnd == -1) break;
+      // Suche nach Wert (Timestamp)
+      int tEnd = message.indexOf(",", tStart);
+      if (tEnd == -1) break;
 
-      String hour = message.substring(hourStart, hourEnd);
+      long timestamp = message.substring(tStart, tEnd).toInt();
 
-      // Suche nach price
-      int priceStart = message.indexOf("\"price\":", hourEnd);
-      if (priceStart == -1) break;
-      priceStart += 8;
+      // Suche nach "v":
+      int vStart = message.indexOf("\"v\":", tEnd);
+      if (vStart == -1) break;
+      vStart += 4;
 
-      int priceEnd = message.indexOf("}", priceStart);
-      if (priceEnd == -1) priceEnd = message.indexOf(",", priceStart);
-      if (priceEnd == -1) priceEnd = message.indexOf("]", priceStart);
-      if (priceEnd == -1) break;
+      // Suche nach Wert (Price)
+      int vEnd = message.indexOf("}", vStart);
+      if (vEnd == -1) break;
 
-      String priceStr = message.substring(priceStart, priceEnd);
-      float price = priceStr.toFloat();
+      float value = message.substring(vStart, vEnd).toFloat();
+
+      // Konvertiere Timestamp zu Stunde (vereinfacht)
+      char hourStr[6];
+      snprintf(hourStr, sizeof(hourStr), "%02d:00", hourIndex);
 
       // Speichere in dayAheadPrices
       if (hourIndex < 24) {
-        dayAheadPrices.prices[hourIndex].price = price;
-        strncpy(dayAheadPrices.prices[hourIndex].hour, hour.c_str(),
+        dayAheadPrices.prices[hourIndex].price = value;
+        strncpy(dayAheadPrices.prices[hourIndex].hour, hourStr,
                 sizeof(dayAheadPrices.prices[hourIndex].hour) - 1);
         dayAheadPrices.prices[hourIndex].hour[sizeof(dayAheadPrices.prices[hourIndex].hour) - 1] = '\0';
         dayAheadPrices.prices[hourIndex].isValid = true;
+
+        Serial.printf("   [%d] %s: %.2f EUR/MWh\n", hourIndex, hourStr, value);
         hourIndex++;
       }
 
-      currentPos = priceEnd + 1;
+      // Nächstes Element
+      currentPos = message.indexOf(",{", vEnd);
+      if (currentPos == -1) break;
+      currentPos += 1; // Nach ","
     }
 
     dayAheadPrices.hasData = (hourIndex > 0);

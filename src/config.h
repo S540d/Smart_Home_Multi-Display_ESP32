@@ -44,6 +44,10 @@ namespace Colors {
   constexpr uint16_t SYSTEM_OK = 0xF800;         // Cyan für OK-Status (R/B getauscht)
   constexpr uint16_t SYSTEM_WARN = 0x051F;       // Orange für Warnungen (R/B getauscht)
   constexpr uint16_t SYSTEM_ERROR = 0x001F;      // Rot für Fehler (R/B getauscht)
+
+  // Touch-Visualisierung
+  constexpr uint16_t TOUCH_MARKER = 0xF81F;      // Magenta für Touch-Markierung
+  constexpr uint16_t TOUCH_BORDER = 0xFFFF;      // Weiß für Touch-Rahmen
 }
 
 namespace Layout {
@@ -78,7 +82,7 @@ namespace Timing {
   constexpr unsigned long MQTT_RECONNECT_INTERVAL = 5000;
   
   // Update-Intervalle
-  constexpr unsigned long ANTI_BURNIN_INTERVAL = 180000;
+  constexpr unsigned long ANTI_BURNIN_INTERVAL = 900000; // 15 Minuten
   constexpr unsigned long SYSTEM_UPDATE_INTERVAL = 2000;
   constexpr unsigned long TIMEOUT_CHECK_INTERVAL = 10000;
   constexpr unsigned long RENDER_UPDATE_INTERVAL = 500;
@@ -87,6 +91,9 @@ namespace Timing {
   // Network Timeouts
   constexpr int WIFI_CONNECT_TIMEOUT_S = 30;
   constexpr int MQTT_CONNECT_TIMEOUT_MS = 10000;
+
+  // Touch-Visualisierung
+  constexpr unsigned long TOUCH_MARKER_DURATION_MS = 2000; // 2 Sekunden Touch-Markierung
 }
 
 namespace System {

@@ -124,45 +124,24 @@ void setup() {
   Serial.println("╚══════════════════════════════════════════════════════════════╝");
   
   try {
-    Serial.println("Initialisiere System...");
     initializeSystem();
-    
-    Serial.println("Initialisiere Display...");
     initializeDisplay();
-    
-    Serial.println("Initialisiere Sensor-Layouts...");
     initializeSensorLayouts();
-    
-    Serial.println("💾 Ermittle Hardware-Info...");
     initializeChipInfo();
-    
-    Serial.println("Starte WiFi-Verbindung...");
     connectWiFi();
-    
-    Serial.println("🕐 Initialisiere Zeit-Service...");
     initializeTime();
-    
-    Serial.println("🔄 Aktiviere OTA-Updates...");
     initializeOTA();
+    initializeSensorLayouts();
+    initializeTouch();
 
-    Serial.println("🎯 Touch-Controller...");
-    Serial.println("⚠️ Touch-Init temporär deaktiviert wegen Bootschleife-Problem");
-    Serial.println("   System läuft ohne Touch weiter");
-
-    Serial.println("📧 Konfiguriere MQTT...");
     client.setServer(NetworkConfig::MQTT_SERVER, NetworkConfig::MQTT_PORT);
     client.setCallback(onMqttMessage);
-    
-    Serial.println("Erstelle initiales Display...");
+
     renderManager.markFullRedrawRequired();
     updateDisplay();
     
-    // Erweiterte System-Diagnostik aus utils.cpp
-    Serial.println("Erstelle System-Diagnostik...");
     logSystemInfo();
     logSensorStatus();
-    
-    Serial.println("System erfolgreich initialisiert!");
     
   } catch (const std::exception& e) {
     handleCriticalError("Setup-Fehler");
@@ -176,21 +155,7 @@ void loop() {
     // OTA-Updates verarbeiten (höchste Priorität)
     handleOTA();
 
-    // Touch-Init verzögert nach System-Start (Bootschleife vermeiden)
-    if (!touchInitAttempted && (now - systemStartTime) > touchInitDelay) {
-      touchInitAttempted = true;
-      Serial.println("🎯 Versuche verzögerte Touch-Initialisierung...");
-
-      try {
-        if (initializeTouch()) {
-          Serial.println("✅ Touch-Controller nachträglich initialisiert");
-        } else {
-          Serial.println("⚠️ Touch-Controller nicht verfügbar - System läuft ohne Touch weiter");
-        }
-      } catch (...) {
-        Serial.println("❌ Touch-Init fehlgeschlagen - Touch bleibt deaktiviert");
-      }
-    }
+    // Touch-Init wurde bereits in setup() durchgeführt
 
     // MQTT Verbindung verwalten
     if (!client.connected()) {
@@ -203,6 +168,9 @@ void loop() {
     if (touchEvent.type != TOUCH_NONE) {
       handleTouchEvent(touchEvent);
     }
+
+    // Touch-Marker aktualisieren (abgelaufene entfernen)
+    updateTouchMarkers();
     
     // Periodische Updates
     if (now - lastSystemUpdate >= Timing::SYSTEM_UPDATE_INTERVAL) {
@@ -221,6 +189,9 @@ void loop() {
     antiBurnin.update();
     if (antiBurnin.hasOffsetChanged()) {
       renderManager.markAntiBurninChanged();
+      // Touch-Bereiche nach Anti-Burnin-Änderung aktualisieren
+      Serial.println("🔄 Anti-Burnin-Änderung - Aktualisiere Touch-Bereiche...");
+      touchManager.updateSensorTouchAreas();
     }
     
     // Display Updates
@@ -228,6 +199,7 @@ void loop() {
       updateDisplay();
       renderManager.lastRenderUpdate = now;
     }
+
     
     // System-Überwachung
     if (systemStatus.criticalMemoryWarning) {
@@ -256,94 +228,66 @@ void loop() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void initializeSystem() {
-  Serial.println("🔧 Initialisiere System...");
   EEPROM.begin(512);
   randomSeed(analogRead(0));
   systemStatus.updateMemoryStatus();
-  
-  Serial.printf("   Freier Heap: %s\n", formatMemoryValue(systemStatus.freeHeap).c_str());
   logFreeHeap("System-Init");
 }
 
 void initializeDisplay() {
-  Serial.println("Initialisiere Display...");
-  
   unsigned long startTime = millis();
-  
+
   tft.init();
   tft.setRotation(1);
   tft.invertDisplay(false);
   tft.fillScreen(Colors::BG_MAIN);
-  
+
   tft.setTextColor(Colors::TEXT_MAIN);
   tft.drawString("Smart Home Display Rev2", 10, 10, 2);
   tft.drawString("Initialisierung...", 10, 30, 1);
-  
+
   logExecutionTime(startTime, "Display-Initialisierung");
-  Serial.println("   Display bereit (320x240)");
 }
 
 void initializeTime() {
-  Serial.println("🕐 Initialisiere Zeit...");
-  
   unsigned long startTime = millis();
-  
-  // Nur wenn WiFi verbunden ist, versuche NTP-Synchronisation
+
   if (!systemStatus.wifiConnected) {
-    Serial.println("   ⏩ Überspringe NTP - kein WiFi");
     systemStatus.timeValid = false;
     return;
   }
-  
-  Serial.println("   Starte NTP-Synchronisation...");
+
   configTime(0, 0, System::NTP_SERVER);
   setenv("TZ", System::TIMEZONE, 1);
   tzset();
-  
-  // Schnellere Zeit-Synchronisation (max 3 Sekunden)
+
   int attempts = 0;
   while (!systemStatus.timeValid && attempts < 3) {
     systemStatus.updateTime();
     if (!systemStatus.timeValid) {
-      delay(500); // Kürzere Delays
-      yield(); // Watchdog füttern
+      delay(500);
+      yield();
       attempts++;
-      Serial.printf("   NTP-Versuch %d/3...\n", attempts);
     }
   }
-  
+
   logExecutionTime(startTime, "Zeit-Synchronisation");
-  
-  if (systemStatus.timeValid) {
-    Serial.printf("   Zeit synchronisiert: %s %s\n", 
-                 systemStatus.currentDate, systemStatus.currentTime);
-  } else {
-    Serial.println("   WARNUNG - NTP-Timeout - System läuft mit lokaler Zeit");
+
+  if (!systemStatus.timeValid) {
     systemStatus.timeValid = false;
   }
 }
 
 void initializeChipInfo() {
-  Serial.println("💾 Ermittle Hardware-Info...");
-  
   auto& info = systemStatus.chipInfo;
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
-  
+
   info.chipRevision = chip_info.revision;
   info.chipId = ESP.getEfuseMac();
   info.hasPSRAM = (ESP.getPsramSize() > 0);
   info.psramSize = ESP.getPsramSize();
   info.flashSize = ESP.getFlashChipSize();
-  
-  Serial.printf("   ESP32 Rev.%d, Flash: %s", 
-               info.chipRevision, 
-               formatMemoryValue(info.flashSize).c_str());
-               
-  if (info.hasPSRAM) {
-    Serial.printf(", PSRAM: %s", formatMemoryValue(info.psramSize).c_str());
-  }
-  Serial.println();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -392,44 +336,31 @@ void updateSystemStatus() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void handleLowMemory() {
-  Serial.println("KRITISCHER SPEICHERMANGEL!");
   logMemoryStatus();
-  
-  Serial.println("   → Führe Garbage Collection durch...");
-  
+
   for (int i = 0; i < System::SENSOR_COUNT; i++) {
     sensors[i].requiresRedraw = true;
   }
-  
+
   memset(&systemStatus.performance, 0, sizeof(systemStatus.performance));
-  
-  // Calendar functionality removed
-  
+
   delay(100);
   systemStatus.updateMemoryStatus();
-  
-  Serial.printf("   → Nach Cleanup: %s verfügbar\n", 
-               formatMemoryValue(systemStatus.freeHeap).c_str());
-  
+
   if (!isSystemStable()) {
-    Serial.println("WARNUNG - System instabil - Neustart empfohlen!");
     scheduleRestart(10000);
   }
 }
 
 void handleCriticalError(const char* error) {
-  Serial.printf("KRITISCHER FEHLER: %s\n", error);
-  
-  // Erweiterte Fehler-Diagnostik
   generateSystemReport();
-  
+
   tft.fillScreen(Colors::STATUS_RED);
   tft.setTextColor(Colors::TEXT_MAIN);
   tft.drawString("SYSTEM ERROR", 10, 10, 2);
   tft.drawString(error, 10, 40, 1);
   tft.drawString("Neustart in 10s...", 10, 60, 1);
-  
-  // Cleanup und Restart über utils.cpp
+
   scheduleRestart(10000);
 }
 
@@ -438,6 +369,11 @@ void handleCriticalError(const char* error) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void handleTouchEvent(const TouchEvent& event) {
+  // Touch-Markierung für ALLE Touch-Events anzeigen (außer MOVE)
+  if (event.type != TOUCH_MOVE && event.type != TOUCH_NONE) {
+    drawTouchMarker(event.point.x, event.point.y);
+  }
+
   switch (event.type) {
     case TOUCH_DOWN:
       // Touch wurde gestartet
@@ -448,26 +384,26 @@ void handleTouchEvent(const TouchEvent& event) {
 
     case TOUCH_UP:
       // Touch wurde beendet - hier könnten Click-Actions implementiert werden
+
+      // ERST: Prüfe Zurück-Button auf Preis-Detail-Screen (hat Vorrang)
+      if (currentMode == PRICE_DETAIL_SCREEN) {
+        int backButtonX = 270 + antiBurnin.getOffsetX();
+        int backButtonY = 10;
+
+        if (event.point.x >= backButtonX && event.point.x <= backButtonX + 40 &&
+            event.point.y >= backButtonY && event.point.y <= backButtonY + 20) {
+          currentMode = HOME_SCREEN;
+          renderManager.markFullRedrawRequired();
+          break; // Wichtig: Weitere Touch-Verarbeitung überspringen
+        }
+      }
+
+      // DANN: Normale Sensor-Touch-Verarbeitung
       if (event.sensorIndex >= 0) {
-        Serial.printf("🖱️ Click auf Sensor %d\n", event.sensorIndex);
-        // Preis-Box Touch (Sensor Index 1) - Wechsel zur Preis-Detail-Ansicht
-        if (event.sensorIndex == 1 && currentMode == HOME_SCREEN) {
-          Serial.println("💰 Wechsel zur Preis-Detail-Ansicht");
+        // Ökostrom-Box Touch (Sensor Index 0) - Wechsel zur Preis-Detail-Ansicht
+        if (event.sensorIndex == 0 && currentMode == HOME_SCREEN) {
           currentMode = PRICE_DETAIL_SCREEN;
           renderManager.markFullRedrawRequired();
-        }
-      } else {
-        // Touch außerhalb von Sensor-Bereichen
-        if (currentMode == PRICE_DETAIL_SCREEN) {
-          // Prüfe ob Zurück-Button berührt wurde (oben rechts)
-          int backButtonX = 270 + antiBurnin.getOffsetX();
-          int backButtonY = 10;
-          if (event.point.x >= backButtonX && event.point.x <= backButtonX + 40 &&
-              event.point.y >= backButtonY && event.point.y <= backButtonY + 20) {
-            Serial.println("🏠 Zurück zur Hauptansicht");
-            currentMode = HOME_SCREEN;
-            renderManager.markFullRedrawRequired();
-          }
         }
       }
       break;
@@ -477,9 +413,7 @@ void handleTouchEvent(const TouchEvent& event) {
       break;
 
     case TOUCH_DOUBLE_TAP:
-      Serial.printf("👆👆 Double Tap bei (%d,%d)\n", event.point.x, event.point.y);
       if (event.sensorIndex >= 0) {
-        Serial.printf("🔧 Sensor %d Detail-Ansicht\n", event.sensorIndex);
         // Future: Open sensor detail view
       }
       break;
@@ -501,7 +435,7 @@ void handleTouchEvent(const TouchEvent& event) {
 
   // Touch-Bereiche nach Anti-Burnin-Änderungen aktualisieren
   static unsigned long lastTouchAreaUpdate = 0;
-  if (millis() - lastTouchAreaUpdate > 5000) { // Alle 5 Sekunden prüfen
+  if (millis() - lastTouchAreaUpdate > 5000) {
     if (antiBurnin.hasOffsetChanged()) {
       touchManager.updateSensorTouchAreas();
       lastTouchAreaUpdate = millis();
