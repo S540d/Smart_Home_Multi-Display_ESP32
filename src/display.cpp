@@ -243,7 +243,9 @@ void drawPriceDetailScreen() {
   // Datum anzeigen
   if (dayAheadPrices.hasData && strlen(dayAheadPrices.date) > 0) {
     tft.setTextColor(Colors::TEXT_LABEL);
-    tft.drawString("Datum: " + String(dayAheadPrices.date), 10 + offsetX, 85, 1);
+    char dateStr[32];
+    snprintf(dateStr, sizeof(dateStr), "Datum: %s", dayAheadPrices.date);
+    tft.drawString(dateStr, 10 + offsetX, 85, 1);
   }
 
   // Preis-Chart oder Liste
@@ -265,13 +267,13 @@ void drawPriceDetailScreen() {
   tft.setTextColor(Colors::TEXT_LABEL);
   if (dayAheadPrices.lastUpdate > 0) {
     unsigned long age = (millis() - dayAheadPrices.lastUpdate) / 1000;
-    String ageText = "Update vor: ";
+    char ageText[32];
     if (age < 60) {
-      ageText += String(age) + "s";
+      snprintf(ageText, sizeof(ageText), "Update vor: %lus", age);
     } else if (age < 3600) {
-      ageText += String(age / 60) + "m";
+      snprintf(ageText, sizeof(ageText), "Update vor: %lum", age / 60);
     } else {
-      ageText += String(age / 3600) + "h";
+      snprintf(ageText, sizeof(ageText), "Update vor: %luh", age / 3600);
     }
     tft.drawString(ageText, 10 + offsetX, 220, 1);
   }
@@ -691,11 +693,11 @@ void drawSensorBox(int index) {
         tft.setTextColor(percentColor);
         
         // Formatierung für Platz sparen: ohne "%" falls zu eng
-        String percentText;
+        char percentText[16];
         if (fabs(percentChange) < 10.0f) { // fabs() für float-Werte verwenden
-          percentText = String(percentChange > 0 ? "+" : "") + String(percentChange, 1) + "%";
+          snprintf(percentText, sizeof(percentText), "%+.1f%%", percentChange);
         } else {
-          percentText = String(percentChange > 0 ? "+" : "") + String(percentChange, 0) + "%";
+          snprintf(percentText, sizeof(percentText), "%+.0f%%", percentChange);
         }
         
         // Kleine Schrift für Prozentänderung unter dem Preis
@@ -704,7 +706,8 @@ void drawSensorBox(int index) {
     } else if (index == 4) {
       // Verbrauch-Box: Zeige Gesamtverbrauch höher positioniert (wie bei Aktien)
       tft.setTextColor(Colors::TEXT_MAIN);
-      String totalText = String(loadPower, 1) + "kW";
+      char totalText[16];
+      snprintf(totalText, sizeof(totalText), "%.1fkW", loadPower);
       tft.drawString(totalText, boxX + Layout::PADDING_SMALL, boxY + 12, 2); // 3px höher wie bei Aktien
     } else {
       tft.setTextColor(Colors::TEXT_MAIN);  // Immer weiß
@@ -810,17 +813,21 @@ void drawSystemInfo() {
   tft.fillRect(infoX, infoY, Layout::SYSTEM_INFO_WIDTH, Layout::SYSTEM_INFO_HEIGHT + 20, Colors::BG_MAIN);
   
   // RAM-Status - einheitlich grau wie Uptime/LDR
-  String memText = "RAM:";
+  char memText[24];
   if (systemStatus.freeHeap >= 1024 * 1024) {
-    memText += String(systemStatus.freeHeap / (1024 * 1024)) + "MB";
+    snprintf(memText, sizeof(memText), "RAM:%luMB", systemStatus.freeHeap / (1024 * 1024));
   } else if (systemStatus.freeHeap >= 1024) {
-    memText += String(systemStatus.freeHeap / 1024) + "KB";
+    snprintf(memText, sizeof(memText), "RAM:%luKB", systemStatus.freeHeap / 1024);
   } else {
-    memText += String(systemStatus.freeHeap) + "B";
+    snprintf(memText, sizeof(memText), "RAM:%luB", systemStatus.freeHeap);
   }
   
   if (systemStatus.lowMemoryWarning) {
-    memText += "!";
+    size_t len = strlen(memText);
+    if (len < sizeof(memText) - 1) {
+      memText[len] = '!';
+      memText[len + 1] = '\0';
+    }
   }
   
   tft.setTextColor(Colors::TEXT_LABEL);
@@ -828,16 +835,18 @@ void drawSystemInfo() {
   
   // CPU-Last - einheitlich grau wie Uptime/LDR
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("CPU:" + String(systemStatus.cpuUsageSmoothed, 0) + "%", infoX, infoY + Layout::LINE_SPACING, 1);
+  char cpuText[16];
+  snprintf(cpuText, sizeof(cpuText), "CPU:%.0f%%", systemStatus.cpuUsageSmoothed);
+  tft.drawString(cpuText, infoX, infoY + Layout::LINE_SPACING, 1);
   
   // Uptime und LDR nebeneinander (platzsparend)
-  String uptimeText = "UP:";
+  char uptimeText[16];
   if (systemStatus.uptime < 3600) {
-    uptimeText += String(systemStatus.uptime / 60) + "m";
+    snprintf(uptimeText, sizeof(uptimeText), "UP:%lum", systemStatus.uptime / 60);
   } else if (systemStatus.uptime < 86400) {
-    uptimeText += String(systemStatus.uptime / 3600) + "h";
+    snprintf(uptimeText, sizeof(uptimeText), "UP:%luh", systemStatus.uptime / 3600);
   } else {
-    uptimeText += String(systemStatus.uptime / 86400) + "d";
+    snprintf(uptimeText, sizeof(uptimeText), "UP:%lud", systemStatus.uptime / 86400);
   }
   
   tft.setTextColor(Colors::TEXT_LABEL);
@@ -845,7 +854,9 @@ void drawSystemInfo() {
   
   // LDR-Wert rechts neben Uptime
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString(" LDR:" + String(systemStatus.ldrValue), infoX + 35, infoY + 2 * Layout::LINE_SPACING, 1);
+  char ldrText[16];
+  snprintf(ldrText, sizeof(ldrText), " LDR:%d", systemStatus.ldrValue);
+  tft.drawString(ldrText, infoX + 35, infoY + 2 * Layout::LINE_SPACING, 1);
 }
 
 void drawNetworkStatus() {
@@ -859,12 +870,17 @@ void drawNetworkStatus() {
   if (systemStatus.wifiConnected) {
     tft.setTextColor(Colors::TEXT_LABEL);
     
-    String wifiText = "WiFi:" + String(systemStatus.wifiRSSI) + "dBm ";
+    char wifiText[32];
     int bars = getSignalBars(systemStatus.wifiRSSI);
-    for (int i = 0; i < 4; i++) {
-      wifiText += (i < bars) ? "●" : "○";
+    snprintf(wifiText, sizeof(wifiText), "WiFi:%ddBm ", systemStatus.wifiRSSI);
+
+    // Add signal bars to string
+    size_t len = strlen(wifiText);
+    for (int i = 0; i < 4 && len < sizeof(wifiText) - 2; i++) {
+      wifiText[len++] = (i < bars) ? '*' : 'o';  // Use ASCII characters instead of Unicode
     }
-    
+    wifiText[len] = '\0';
+
     tft.drawString(wifiText, netX, netY, 1);
   } else {
     tft.setTextColor(Colors::TEXT_LABEL);
@@ -872,15 +888,18 @@ void drawNetworkStatus() {
   }
   
   // MQTT-Status (zweite Zeile)
-  String mqttText = systemStatus.mqttConnected ? "MQTT:OK" : "MQTT:FEHLER";
+  const char* mqttText = systemStatus.mqttConnected ? "MQTT:OK" : "MQTT:FEHLER";
   tft.setTextColor(Colors::TEXT_LABEL);
   tft.drawString(mqttText, netX, netY + Layout::LINE_SPACING, 1);
   
   // OTA-Status (dritte Zeile)
   if (isOTAActive()) {
-    String otaStatusText = "OTA:" + getOTAStatus();
+    // Temporarily get String, but at least limit memory allocation
+    String otaStatus = getOTAStatus();
+    char otaStatusText[32];
+    snprintf(otaStatusText, sizeof(otaStatusText), "OTA:%s", otaStatus.c_str());
     int progress = getOTAProgress();
-    
+
     tft.setTextColor(Colors::TEXT_LABEL);
     tft.drawString(otaStatusText, netX, netY + 2 * Layout::LINE_SPACING, 1);
   } else {
@@ -1525,7 +1544,9 @@ void drawWallboxConsumptionScreen() {
   }
 
   tft.setTextColor(storageStatusColor);
-  tft.drawString(String(storageLevel, 0) + "% (" + storageStatusText + ")", 10 + offsetX, 215, 1);
+  char storageText[48];
+  snprintf(storageText, sizeof(storageText), "%.0f%% (%s)", storageLevel, storageStatusText);
+  tft.drawString(storageText, 10 + offsetX, 215, 1);
 
   // Progress Bar für Hausspeicher
   int storageProgressX = 10 + offsetX;
@@ -1591,7 +1612,9 @@ void drawLadestandScreen() {
 
   // Großer Prozent-Wert
   tft.setTextColor(storageStatusColor);
-  tft.drawString(String(storageLevel, 0) + "%", 10 + offsetX, 65, 4);
+  char storageLevelText[8];
+  snprintf(storageLevelText, sizeof(storageLevelText), "%.0f%%", storageLevel);
+  tft.drawString(storageLevelText, 10 + offsetX, 65, 4);
 
   // Status-Text
   tft.setTextColor(storageStatusColor);
@@ -1602,7 +1625,9 @@ void drawLadestandScreen() {
     tft.setTextColor(Colors::TEXT_LABEL);
     tft.drawString("Leistung:", 10 + offsetX, 130, 1);
     tft.setTextColor(Colors::TEXT_MAIN);
-    tft.drawString(String(storagePower, 1) + " kW", 80 + offsetX, 130, 1);
+    char powerText[16];
+    snprintf(powerText, sizeof(powerText), "%.1f kW", storagePower);
+    tft.drawString(powerText, 80 + offsetX, 130, 1);
   }
 
   // Progress Bar für Hausspeicher-Ladestand
@@ -1702,13 +1727,14 @@ void drawSettingsScreen() {
   tft.setTextColor(Colors::TEXT_LABEL);
   tft.drawString("System-Information:", 10 + offsetX, 180, 1);
 
-  String firmwareInfo = "Firmware: ESP32 Rev2";
-  tft.drawString(firmwareInfo, 10 + offsetX, 195, 1);
+  tft.drawString("Firmware: ESP32 Rev2", 10 + offsetX, 195, 1);
 
-  String uptimeInfo = "Uptime: " + String(systemStatus.uptime / 3600) + "h";
+  char uptimeInfo[32];
+  snprintf(uptimeInfo, sizeof(uptimeInfo), "Uptime: %luh", systemStatus.uptime / 3600);
   tft.drawString(uptimeInfo, 10 + offsetX, 210, 1);
 
-  String memInfo = "RAM: " + String(systemStatus.freeHeap / 1024) + "KB frei";
+  char memInfo[32];
+  snprintf(memInfo, sizeof(memInfo), "RAM: %luKB frei", systemStatus.freeHeap / 1024);
   tft.drawString(memInfo, 10 + offsetX, 225, 1);
 
   Serial.println("Settings-Screen vollständig gezeichnet");

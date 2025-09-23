@@ -127,10 +127,12 @@ void reconnectMQTT() {
   
   Serial.printf("🔄 MQTT-Verbindung (Versuch #%lu)...", ++systemStatus.mqttReconnectAttempts);
   
-  String clientId = "ESP32Display-" + String(random(0xffff), HEX) + "-" + String(systemStatus.mqttReconnectAttempts);
+  char clientId[48];
+  snprintf(clientId, sizeof(clientId), "ESP32Display-%04X-%lu",
+           random(0xffff), systemStatus.mqttReconnectAttempts);
   
   unsigned long connectStart = millis();
-  bool connected = client.connect(clientId.c_str(), NetworkConfig::MQTT_USER, NetworkConfig::MQTT_PASS);
+  bool connected = client.connect(clientId, NetworkConfig::MQTT_USER, NetworkConfig::MQTT_PASS);
   
   if (connected) {
     systemStatus.mqttConnected = true;
