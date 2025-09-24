@@ -492,28 +492,276 @@ enum DisplayMode {
 //                              PRICE DETAIL DATA STRUCTURES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-struct HourlyPrice {
-  float price = 0.0f;
-  char hour[6] = "";  // Format: "HH:MM"
-  bool isValid = false;
+enum PriceCategory {
+  PRICE_VERY_CHEAP = 0,    // < 20% percentile
+  PRICE_CHEAP = 1,         // 20-40% percentile
+  PRICE_MEDIUM = 2,        // 40-60% percentile
+  PRICE_EXPENSIVE = 3,     // 60-80% percentile
+  PRICE_VERY_EXPENSIVE = 4 // > 80% percentile
 };
 
-struct DayAheadPriceData {
+enum TrendDirection {
+  TREND_RISING = 0,
+  TREND_FALLING = 1,
+  TREND_STABLE = 2
+};
+
+struct OptimalUsageWindow {
+  uint8_t startHour;      // 0-23
+  uint8_t endHour;        // 0-23
+  float averagePrice;     // Average price in this window
+  float savingsVsPeak;    // Potential savings vs most expensive hour
+  bool isAvailable;       // Whether this window is valid
+};
+
+struct HourlyPrice {
+  float price = 0.0f;
+  char hour[6] = "";      // Format: "HH:MM"
+  bool isValid = false;
+  PriceCategory category = PRICE_MEDIUM;
+};
+
+struct EnhancedDayAheadData {
+  // Raw price data (existing)
   HourlyPrice prices[24];  // 24 Stunden des Tages
   unsigned long lastUpdate = 0;
   bool hasData = false;
   char date[11] = "";  // Format: "DD.MM.YYYY"
 
+  // Calculated analytics
+  float dailyAverage = 0.0f;
+  float minPrice = 0.0f;
+  float maxPrice = 0.0f;
+  uint8_t cheapestHour = 0;     // 0-23, hour with lowest price
+  uint8_t expensiveHour = 0;    // 0-23, hour with highest price
+
+  // Trend analysis
+  TrendDirection trend = TREND_STABLE;
+  float volatilityIndex = 0.0f; // 0-100, price volatility measure
+
+  // Optimization insights
+  OptimalUsageWindow optimalWindows[3]; // Best 3 time windows for high consumption
+  float potentialSavings = 0.0f;        // Max savings possible by timing usage optimally
+
+  // Data quality metrics
+  uint8_t dataQuality = 0;              // 0-100, confidence in the data
+  unsigned long lastAnalysis = 0;       // When analytics were last calculated
+
   void clear() {
     for (int i = 0; i < 24; i++) {
       prices[i].isValid = false;
       prices[i].price = 0.0f;
+      prices[i].category = PRICE_MEDIUM;
       strcpy(prices[i].hour, "");
     }
     hasData = false;
     lastUpdate = 0;
+    lastAnalysis = 0;
     strcpy(date, "");
+
+    // Reset analytics
+    dailyAverage = 0.0f;
+    minPrice = 0.0f;
+    maxPrice = 0.0f;
+    cheapestHour = 0;
+    expensiveHour = 0;
+    trend = TREND_STABLE;
+    volatilityIndex = 0.0f;
+    potentialSavings = 0.0f;
+    dataQuality = 0;
+
+    // Reset optimal windows
+    for (int i = 0; i < 3; i++) {
+      optimalWindows[i].isAvailable = false;
+      optimalWindows[i].startHour = 0;
+      optimalWindows[i].endHour = 0;
+      optimalWindows[i].averagePrice = 0.0f;
+      optimalWindows[i].savingsVsPeak = 0.0f;
+    }
+  }
+
+  // Analytics calculation function
+  void calculateAnalytics() {
+    if (!hasData) return;
+
+    // Count valid prices
+    int validCount = 0;
+    float sum = 0.0f;
+    minPrice = 999.0f;
+    maxPrice = 0.0f;
+
+    for (int i = 0; i < 24; i++) {
+      if (prices[i].isValid) {
+        validCount++;
+        sum += prices[i].price;
+
+        if (prices[i].price < minPrice) {
+          minPrice = prices[i].price;
+          cheapestHour = i;
+        }
+        if (prices[i].price > maxPrice) {
+          maxPrice = prices[i].price;
+          expensiveHour = i;
+        }
+      }
+    }
+
+    if (validCount == 0) {
+      dataQuality = 0;
+      return;
+    }
+
+    // Calculate average
+    dailyAverage = sum / validCount;
+
+    // Calculate data quality (percentage of valid hours)
+    dataQuality = (validCount * 100) / 24;
+
+    // Calculate volatility (standard deviation as percentage of mean)
+    if (validCount > 1 && dailyAverage > 0) {
+      float variance = 0.0f;
+      for (int i = 0; i < 24; i++) {
+        if (prices[i].isValid) {
+          float diff = prices[i].price - dailyAverage;
+          variance += diff * diff;
+        }
+      }
+      variance /= (validCount - 1);
+      volatilityIndex = (sqrt(variance) / dailyAverage) * 100.0f;
+    }
+
+    // Categorize prices by percentiles
+    categorizePrices();
+
+    // Calculate trend direction (compare first 8h vs last 8h average)
+    calculateTrend();
+
+    // Find optimal usage windows
+    findOptimalWindows();
+
+    // Calculate potential savings
+    potentialSavings = maxPrice - minPrice;
+
+    lastAnalysis = millis();
+  }
+
+private:
+  void categorizePrices() {
+    if (!hasData) return;
+
+    // Simple percentile-based categorization
+    float range = maxPrice - minPrice;
+    if (range <= 0) return;
+
+    for (int i = 0; i < 24; i++) {
+      if (prices[i].isValid) {
+        float priceRatio = (prices[i].price - minPrice) / range;
+
+        if (priceRatio <= 0.2f) {
+          prices[i].category = PRICE_VERY_CHEAP;
+        } else if (priceRatio <= 0.4f) {
+          prices[i].category = PRICE_CHEAP;
+        } else if (priceRatio <= 0.6f) {
+          prices[i].category = PRICE_MEDIUM;
+        } else if (priceRatio <= 0.8f) {
+          prices[i].category = PRICE_EXPENSIVE;
+        } else {
+          prices[i].category = PRICE_VERY_EXPENSIVE;
+        }
+      }
+    }
+  }
+
+  void calculateTrend() {
+    // Compare first 8 hours vs last 8 hours average
+    float firstHalfSum = 0.0f, lastHalfSum = 0.0f;
+    int firstCount = 0, lastCount = 0;
+
+    for (int i = 0; i < 8; i++) {
+      if (prices[i].isValid) {
+        firstHalfSum += prices[i].price;
+        firstCount++;
+      }
+    }
+
+    for (int i = 16; i < 24; i++) {
+      if (prices[i].isValid) {
+        lastHalfSum += prices[i].price;
+        lastCount++;
+      }
+    }
+
+    if (firstCount > 0 && lastCount > 0) {
+      float firstAvg = firstHalfSum / firstCount;
+      float lastAvg = lastHalfSum / lastCount;
+      float change = ((lastAvg - firstAvg) / firstAvg) * 100.0f;
+
+      if (change > 5.0f) {
+        trend = TREND_RISING;
+      } else if (change < -5.0f) {
+        trend = TREND_FALLING;
+      } else {
+        trend = TREND_STABLE;
+      }
+    }
+  }
+
+  void findOptimalWindows() {
+    // Find 3 best 3-hour windows for high consumption
+    for (int w = 0; w < 3; w++) {
+      optimalWindows[w].isAvailable = false;
+      float bestAverage = 999.0f;
+      int bestStart = 0;
+
+      // Try all possible 3-hour windows
+      for (int start = 0; start <= 21; start++) {
+        float windowSum = 0.0f;
+        int validInWindow = 0;
+        bool skipWindow = false;
+
+        // Check if this window overlaps with already selected ones
+        for (int prev = 0; prev < w; prev++) {
+          if (optimalWindows[prev].isAvailable) {
+            if (!(start + 2 < optimalWindows[prev].startHour ||
+                  start > optimalWindows[prev].endHour)) {
+              skipWindow = true;
+              break;
+            }
+          }
+        }
+
+        if (skipWindow) continue;
+
+        // Calculate average for this 3-hour window
+        for (int h = start; h < start + 3 && h < 24; h++) {
+          if (prices[h].isValid) {
+            windowSum += prices[h].price;
+            validInWindow++;
+          }
+        }
+
+        if (validInWindow >= 2) { // Require at least 2 valid hours
+          float windowAverage = windowSum / validInWindow;
+          if (windowAverage < bestAverage) {
+            bestAverage = windowAverage;
+            bestStart = start;
+          }
+        }
+      }
+
+      // Store the best window found
+      if (bestAverage < 999.0f) {
+        optimalWindows[w].isAvailable = true;
+        optimalWindows[w].startHour = bestStart;
+        optimalWindows[w].endHour = min(bestStart + 2, 23);
+        optimalWindows[w].averagePrice = bestAverage;
+        optimalWindows[w].savingsVsPeak = maxPrice - bestAverage;
+      }
+    }
   }
 };
+
+// Legacy typedef for backward compatibility
+typedef EnhancedDayAheadData DayAheadPriceData;
 
 #endif // CONFIG_H

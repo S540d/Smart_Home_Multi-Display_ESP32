@@ -240,16 +240,16 @@ void drawPriceDetailScreen() {
   const char* currentPriceText = sensors[1].formattedValue;
   tft.drawString(currentPriceText, Layout::PADDING_LARGE + offsetX, 55, 3);
 
-  // Datum anzeigen
-  if (dayAheadPrices.hasData && strlen(dayAheadPrices.date) > 0) {
+  // Smart Analytics Display
+  if (dayAheadPrices.hasData && dayAheadPrices.lastAnalysis > 0) {
+    drawPriceAnalytics(offsetX);
+  } else if (dayAheadPrices.hasData) {
+    // Datum anzeigen (Legacy-Modus)
     tft.setTextColor(Colors::TEXT_LABEL);
     char dateText[64];
     snprintf(dateText, sizeof(dateText), "Datum: %s", dayAheadPrices.date);
     tft.drawString(dateText, 10 + offsetX, 85, 1);
-  }
 
-  // Preis-Chart oder Liste
-  if (dayAheadPrices.hasData) {
     drawPriceChart(offsetX);
   } else {
     // Keine Daten verfügbar
@@ -279,6 +279,162 @@ void drawPriceDetailScreen() {
   }
 
   Serial.println("Preis-Detail-Screen vollständig gezeichnet");
+}
+
+void drawPriceAnalytics(int offsetX) {
+  // Display comprehensive Day-Ahead analytics
+  int yPos = 85;
+  const int LINE_HEIGHT = 15;
+  const int INDENT = Layout::PADDING_LARGE + offsetX;
+
+  // Date and data quality
+  tft.setTextColor(Colors::TEXT_LABEL);
+  char headerText[64];
+  snprintf(headerText, sizeof(headerText), "%s (Qualität: %d%%)",
+           dayAheadPrices.date, dayAheadPrices.dataQuality);
+  tft.drawString(headerText, INDENT, yPos, 1);
+  yPos += LINE_HEIGHT;
+
+  // Price statistics
+  tft.setTextColor(Colors::TEXT_MAIN);
+  char statsText[80];
+  snprintf(statsText, sizeof(statsText), "Ø %.1f¢  Min: %.1f¢@%02d:00  Max: %.1f¢@%02d:00",
+           dayAheadPrices.dailyAverage, dayAheadPrices.minPrice, dayAheadPrices.cheapestHour,
+           dayAheadPrices.maxPrice, dayAheadPrices.expensiveHour);
+  tft.drawString(statsText, INDENT, yPos, 1);
+  yPos += LINE_HEIGHT + 5;
+
+  // Trend and volatility
+  uint16_t trendColor = (dayAheadPrices.trend == TREND_RISING) ? Colors::STATUS_RED :
+                       (dayAheadPrices.trend == TREND_FALLING) ? Colors::STATUS_GREEN :
+                       Colors::STATUS_BLUE;
+  const char* trendText = (dayAheadPrices.trend == TREND_RISING) ? "Steigend" :
+                         (dayAheadPrices.trend == TREND_FALLING) ? "Fallend" : "Stabil";
+
+  tft.setTextColor(trendColor);
+  char trendStr[60];
+  snprintf(trendStr, sizeof(trendStr), "Trend: %s  Volatilität: %.1f%%",
+           trendText, dayAheadPrices.volatilityIndex);
+  tft.drawString(trendStr, INDENT, yPos, 1);
+  yPos += LINE_HEIGHT + 8;
+
+  // Optimization section header
+  tft.setTextColor(Colors::TEXT_MAIN);
+  tft.drawString("🎯 Optimale Zeiten für Hochverbrauch:", INDENT, yPos, 1);
+  yPos += LINE_HEIGHT + 3;
+
+  // Show optimal windows
+  tft.setTextColor(Colors::TEXT_LABEL);
+  int windowCount = 0;
+  for (int i = 0; i < 3; i++) {
+    if (dayAheadPrices.optimalWindows[i].isAvailable) {
+      windowCount++;
+      char windowText[70];
+      snprintf(windowText, sizeof(windowText), "%d. %02d:00-%02d:00  Ø %.1f¢  (Sparen: %.1f¢)",
+               windowCount,
+               dayAheadPrices.optimalWindows[i].startHour,
+               dayAheadPrices.optimalWindows[i].endHour,
+               dayAheadPrices.optimalWindows[i].averagePrice,
+               dayAheadPrices.optimalWindows[i].savingsVsPeak);
+      tft.drawString(windowText, INDENT, yPos, 1);
+      yPos += LINE_HEIGHT;
+    }
+  }
+
+  if (windowCount == 0) {
+    tft.setTextColor(Colors::TEXT_TIMEOUT);
+    tft.drawString("Keine optimalen Zeitfenster gefunden", INDENT, yPos, 1);
+    yPos += LINE_HEIGHT;
+  }
+
+  yPos += 5;
+
+  // Potential savings highlight
+  if (dayAheadPrices.potentialSavings > 0.5f) {
+    tft.setTextColor(Colors::STATUS_GREEN);
+    char savingsText[60];
+    snprintf(savingsText, sizeof(savingsText), "💰 Max. Einsparung: %.1f¢/kWh",
+             dayAheadPrices.potentialSavings);
+    tft.drawString(savingsText, INDENT, yPos, 1);
+    yPos += LINE_HEIGHT;
+  }
+
+  // Simple price chart/visualization
+  yPos += 10;
+  drawSimplePriceChart(INDENT, yPos, 280, 40);
+  yPos += 50;
+
+  // Update timestamp
+  if (dayAheadPrices.lastUpdate > 0) {
+    unsigned long age = (millis() - dayAheadPrices.lastUpdate) / 1000;
+    char ageText[32];
+    if (age < 60) {
+      snprintf(ageText, sizeof(ageText), "Update vor: %lus", age);
+    } else if (age < 3600) {
+      snprintf(ageText, sizeof(ageText), "Update vor: %lum", age / 60);
+    } else {
+      snprintf(ageText, sizeof(ageText), "Update vor: %luh", age / 3600);
+    }
+    tft.setTextColor(Colors::TEXT_LABEL);
+    tft.drawString(ageText, INDENT, yPos, 1);
+  }
+}
+
+void drawSimplePriceChart(int x, int y, int width, int height) {
+  // Draw a simple bar chart showing 24h price distribution with color coding
+  if (!dayAheadPrices.hasData) return;
+
+  const int BAR_WIDTH = width / 24;
+  const int CHART_HEIGHT = height - 10; // Leave space for time labels
+
+  // Draw chart border
+  tft.drawRect(x, y, width, height, Colors::BORDER_MAIN);
+
+  // Find valid price range for scaling
+  float minVal = dayAheadPrices.minPrice;
+  float maxVal = dayAheadPrices.maxPrice;
+  if (maxVal <= minVal) return;
+
+  // Draw price bars for each hour
+  for (int hour = 0; hour < 24; hour++) {
+    if (dayAheadPrices.prices[hour].isValid) {
+      int barX = x + (hour * BAR_WIDTH) + 1;
+      float price = dayAheadPrices.prices[hour].price;
+      int barHeight = (int)((price - minVal) / (maxVal - minVal) * CHART_HEIGHT);
+
+      // Color based on price category
+      uint16_t barColor;
+      switch (dayAheadPrices.prices[hour].category) {
+        case PRICE_VERY_CHEAP:   barColor = Colors::STATUS_GREEN; break;
+        case PRICE_CHEAP:        barColor = TFT_DARKGREEN; break;
+        case PRICE_MEDIUM:       barColor = Colors::STATUS_BLUE; break;
+        case PRICE_EXPENSIVE:    barColor = TFT_ORANGE; break;
+        case PRICE_VERY_EXPENSIVE: barColor = Colors::STATUS_RED; break;
+        default:                 barColor = Colors::TEXT_LABEL; break;
+      }
+
+      // Draw the bar
+      if (barHeight > 0) {
+        tft.fillRect(barX, y + CHART_HEIGHT - barHeight, BAR_WIDTH - 1, barHeight, barColor);
+      }
+
+      // Mark current hour with a white outline
+      time_t now = time(nullptr);
+      struct tm* timeinfo = localtime(&now);
+      if (timeinfo && timeinfo->tm_hour == hour) {
+        tft.drawRect(barX - 1, y, BAR_WIDTH + 1, height, Colors::TEXT_MAIN);
+      }
+    }
+  }
+
+  // Draw time labels every 6 hours
+  tft.setTextColor(Colors::TEXT_LABEL);
+  for (int h = 0; h < 24; h += 6) {
+    int labelX = x + (h * BAR_WIDTH);
+    char timeStr[4];
+    snprintf(timeStr, sizeof(timeStr), "%02d", h);
+    tft.drawString(timeStr, labelX, y + height + 2, 1);
+  }
 }
 
 void drawOekostromDetailScreen() {

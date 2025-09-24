@@ -622,6 +622,32 @@ void processDayAheadPriceData(const String& message) {
     dayAheadPrices.hasData = (hourIndex > 0);
     dayAheadPrices.lastUpdate = millis();
 
+    // Calculate analytics for enhanced insights
+    if (dayAheadPrices.hasData) {
+      dayAheadPrices.calculateAnalytics();
+      Serial.printf("📊 Analytics: Avg=%.1f¢, Min=%.1f¢@%02d:00, Max=%.1f¢@%02d:00, Quality=%d%%\n",
+                    dayAheadPrices.dailyAverage, dayAheadPrices.minPrice, dayAheadPrices.cheapestHour,
+                    dayAheadPrices.maxPrice, dayAheadPrices.expensiveHour, dayAheadPrices.dataQuality);
+
+      // Log optimal windows
+      for (int i = 0; i < 3; i++) {
+        if (dayAheadPrices.optimalWindows[i].isAvailable) {
+          Serial.printf("🎯 Optimal Window %d: %02d:00-%02d:00 (Avg: %.1f¢, Save: %.1f¢)\n",
+                        i + 1, dayAheadPrices.optimalWindows[i].startHour,
+                        dayAheadPrices.optimalWindows[i].endHour,
+                        dayAheadPrices.optimalWindows[i].averagePrice,
+                        dayAheadPrices.optimalWindows[i].savingsVsPeak);
+        }
+      }
+
+      // Log trend info
+      const char* trendStr = (dayAheadPrices.trend == TREND_RISING) ? "📈 Rising" :
+                            (dayAheadPrices.trend == TREND_FALLING) ? "📉 Falling" :
+                            "📊 Stable";
+      Serial.printf("%s trend, Volatility: %.1f%%, Potential savings: %.1f¢\n",
+                    trendStr, dayAheadPrices.volatilityIndex, dayAheadPrices.potentialSavings);
+    }
+
     Serial.printf("✅ Day-Ahead Daten verarbeitet: %d Preise für %s\n",
                   hourIndex, dayAheadPrices.date);
 
