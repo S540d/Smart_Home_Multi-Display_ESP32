@@ -17,7 +17,11 @@ A WiFi-connected smart home display system built on ESP32 that shows real-time s
 ### 📱 **Interactive Touch Interface**
 - **Touch Navigation**: Tap any sensor box to access detailed subpages
   - 🌱 **Renewable Energy Details**: Ökostrom analysis with 24h price charts
-  - 💰 **Price Analysis**: Day-Ahead electricity prices with hourly breakdown
+  - 💰 **Day-Ahead Price Analysis**: Real-time electricity price forecasts with:
+    - 📊 Hourly price breakdown for next 24 hours
+    - 📈 Advanced analytics with trend analysis and volatility index
+    - 🎯 Optimal usage windows for cost savings
+    - ⚡ Smart optimization insights for high-consumption appliances
   - 🔋 **Charging Status**: Battery levels for house storage and car
   - ⚡ **Consumption Monitor**: Home usage and wallbox power details
   - ⚙️ **Settings**: Touch calibration and system information
@@ -102,7 +106,7 @@ The system subscribes to the following MQTT topics (configured in `config.h`):
 #### **Core Sensor Data**
 - `home/PV/Share_renewable` - Renewable energy percentage
 - `home/PV/EnergyPrice` - Current electricity price
-- `home/PV/EnergyPriceDayAhead` - Day-Ahead market prices (24h JSON data)
+- `home/energy/price_forecast_24h` - **Day-Ahead market prices** (24h JSON format: `[{"h":hour,"v":price}...]`)
 - `home/stocks/CL2PACurr` - Stock price (current)
 - `home/stocks/CL2PARef` - Stock price (reference)
 - `home/stocks/CL2PAPrevClose` - Stock price (previous close)
