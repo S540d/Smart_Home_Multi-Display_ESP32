@@ -73,6 +73,38 @@ namespace Layout {
   constexpr int PADDING_MEDIUM = 5;
   constexpr int PADDING_LARGE = 10;
   constexpr int LINE_SPACING = 12;
+
+  // Position Konstanten
+  constexpr int STATUS_BAR_Y = 10;
+  constexpr int STATUS_BAR_WIDTH = 200;
+  constexpr int STATUS_BAR_HEIGHT = 20;
+
+  constexpr int SYSTEM_INFO_X = 240;
+  constexpr int SYSTEM_INFO_Y = 200;
+  constexpr int SYSTEM_INFO_EXTENDED_HEIGHT = 20;
+
+  constexpr int NETWORK_INFO_X = 10;
+  constexpr int NETWORK_INFO_Y = 200;
+  constexpr int NETWORK_INFO_WIDTH = 120;
+  constexpr int NETWORK_INFO_LINES = 3;
+
+  constexpr int TIME_DISPLAY_X = 240;
+  constexpr int TIME_DISPLAY_Y = 8;
+  constexpr int TIME_DISPLAY_WIDTH = 80;
+  constexpr int TIME_DISPLAY_HEIGHT = 32;
+
+  // Touch und Chart Konstanten
+  constexpr int MAX_TOUCH_MARKERS = 5;
+  constexpr int CHART_HOURS = 24;
+  constexpr int CHART_HOUR_INTERVAL = 4;
+
+  // Home Screen Layout Positionen
+  constexpr int TITLE_X = 10;
+  constexpr int TITLE_Y = 10;
+  constexpr int COMBINED_LAYOUT_X1 = 10;
+  constexpr int COMBINED_LAYOUT_Y1 = 35;
+  constexpr int COMBINED_LAYOUT_X2 = 115;
+  constexpr int COMBINED_LAYOUT_Y2 = 135;
 }
 
 namespace Timing {

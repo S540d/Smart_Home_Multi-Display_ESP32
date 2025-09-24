@@ -15,7 +15,7 @@ struct TouchMarker {
 };
 
 // Mehrere Touch-Markierungen für Multi-Touch
-TouchMarker touchMarkers[5];
+TouchMarker touchMarkers[Layout::MAX_TOUCH_MARKERS];
 int nextMarkerIndex = 0;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -27,7 +27,7 @@ void clearOldElements() {
   int oldOffsetX = antiBurnin.getLastOffsetX();
   
   // Titel-Bereich löschen
-  tft.fillRect(10 + oldOffsetX, 10, 200, 20, Colors::BG_MAIN);
+  tft.fillRect(Layout::PADDING_LARGE + oldOffsetX, Layout::STATUS_BAR_Y, Layout::STATUS_BAR_WIDTH, Layout::STATUS_BAR_HEIGHT, Colors::BG_MAIN);
   
   // Alle Sensor-Boxen an alter Position löschen
   for (int i = 0; i < System::SENSOR_COUNT; i++) {
@@ -37,11 +37,11 @@ void clearOldElements() {
   }
   
   // System-Info und andere UI-Elemente
-  tft.fillRect(240 + oldOffsetX, 200, Layout::SYSTEM_INFO_WIDTH, Layout::SYSTEM_INFO_HEIGHT + 20, Colors::BG_MAIN);
-  tft.fillRect(10 + oldOffsetX, 200, 120, Layout::LINE_SPACING * 3, Colors::BG_MAIN);
+  tft.fillRect(Layout::SYSTEM_INFO_X + oldOffsetX, Layout::SYSTEM_INFO_Y, Layout::SYSTEM_INFO_WIDTH, Layout::SYSTEM_INFO_HEIGHT + Layout::SYSTEM_INFO_EXTENDED_HEIGHT, Colors::BG_MAIN);
+  tft.fillRect(Layout::NETWORK_INFO_X + oldOffsetX, Layout::NETWORK_INFO_Y, Layout::NETWORK_INFO_WIDTH, Layout::LINE_SPACING * Layout::NETWORK_INFO_LINES, Colors::BG_MAIN);
   
   // Zeit-Display
-  tft.fillRect(240 + oldOffsetX, 8, 80, 32, Colors::BG_MAIN);
+  tft.fillRect(Layout::TIME_DISPLAY_X + oldOffsetX, Layout::TIME_DISPLAY_Y, Layout::TIME_DISPLAY_WIDTH, Layout::TIME_DISPLAY_HEIGHT, Colors::BG_MAIN);
   
   Serial.println("Alte UI-Elemente gelöscht");
 }
@@ -141,7 +141,7 @@ void drawHomeScreen() {
   
   // Titel mit Anti-Burnin Offset
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Smart Home Display Rev2", 10 + offsetX, 10, 2);
+  tft.drawString("Smart Home Display Rev2", Layout::TITLE_X + offsetX, Layout::TITLE_Y, 2);
   
   // TEST: Zeige kombinierte Layouts als Demonstration
   // Aktiviere dies temporär zum Testen der Kombinationen
@@ -152,10 +152,10 @@ void drawHomeScreen() {
     Serial.println("🧪 Testing Combined Layouts:");
     
     // Kombiniere erste zwei Felder: Ökostrom + Preis
-    drawCombinedSensorBox(0, 1, 10, 35, Layout::SENSOR_BOX_WIDTH_WIDE, Layout::SENSOR_BOX_HEIGHT, "Oeko+Preis");
+    drawCombinedSensorBox(0, 1, Layout::COMBINED_LAYOUT_X1, Layout::COMBINED_LAYOUT_Y1, Layout::SENSOR_BOX_WIDTH_WIDE, Layout::SENSOR_BOX_HEIGHT, "Oeko+Preis");
     
     // Kombiniere Temperaturen: Außen + Wasser
-    drawCombinedSensorBox(6, 7, 115, 135, Layout::SENSOR_BOX_WIDTH_WIDE, Layout::SENSOR_BOX_HEIGHT, "Temp");
+    drawCombinedSensorBox(6, 7, Layout::COMBINED_LAYOUT_X2, Layout::COMBINED_LAYOUT_Y2, Layout::SENSOR_BOX_WIDTH_WIDE, Layout::SENSOR_BOX_HEIGHT, "Temp");
     
     // Zeichne die nicht kombinierten Sensoren normal
     for (int i = 0; i < System::SENSOR_COUNT; i++) {
@@ -224,7 +224,7 @@ void drawPriceDetailScreen() {
 
   // Titel
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Strompreis Day-Ahead", 10 + offsetX, 10, 2);
+  tft.drawString("Strompreis Day-Ahead", Layout::PADDING_LARGE + offsetX, Layout::PADDING_LARGE, 2);
 
   // Zurück-Button (oben rechts)
   int backButtonX = 270 + offsetX;
@@ -235,17 +235,17 @@ void drawPriceDetailScreen() {
 
   // Aktueller Preis (groß anzeigen)
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("Aktueller Preis:", 10 + offsetX, 40, 1);
+  tft.drawString("Aktueller Preis:", Layout::PADDING_LARGE + offsetX, 40, 1);
   tft.setTextColor(Colors::TEXT_MAIN);
-  String currentPriceText = String(sensors[1].formattedValue);
-  tft.drawString(currentPriceText, 10 + offsetX, 55, 3);
+  const char* currentPriceText = sensors[1].formattedValue;
+  tft.drawString(currentPriceText, Layout::PADDING_LARGE + offsetX, 55, 3);
 
   // Datum anzeigen
   if (dayAheadPrices.hasData && strlen(dayAheadPrices.date) > 0) {
     tft.setTextColor(Colors::TEXT_LABEL);
     char dateStr[32];
     snprintf(dateStr, sizeof(dateStr), "Datum: %s", dayAheadPrices.date);
-    tft.drawString(dateStr, 10 + offsetX, 85, 1);
+    tft.drawString(dateStr, Layout::PADDING_LARGE + offsetX, 85, 1);
   }
 
   // Preis-Chart oder Liste
@@ -254,13 +254,13 @@ void drawPriceDetailScreen() {
   } else {
     // Keine Daten verfügbar
     tft.setTextColor(Colors::TEXT_TIMEOUT);
-    tft.drawString("Keine Day-Ahead Daten", 10 + offsetX, 110, 2);
-    tft.drawString("verfuegbar", 10 + offsetX, 130, 2);
+    tft.drawString("Keine Day-Ahead Daten", Layout::PADDING_LARGE + offsetX, 110, 2);
+    tft.drawString("verfuegbar", Layout::PADDING_LARGE + offsetX, 130, 2);
 
     // MQTT Topic für Debug anzeigen
     tft.setTextColor(Colors::TEXT_LABEL);
-    tft.drawString("Topic:", 10 + offsetX, 160, 1);
-    tft.drawString("EnergyMarketPriceDayAhead", 10 + offsetX, 175, 1);
+    tft.drawString("Topic:", Layout::PADDING_LARGE + offsetX, 160, 1);
+    tft.drawString("EnergyMarketPriceDayAhead", Layout::PADDING_LARGE + offsetX, 175, 1);
   }
 
   // Status-Info unten
@@ -275,7 +275,7 @@ void drawPriceDetailScreen() {
     } else {
       snprintf(ageText, sizeof(ageText), "Update vor: %luh", age / 3600);
     }
-    tft.drawString(ageText, 10 + offsetX, 220, 1);
+    tft.drawString(ageText, Layout::PADDING_LARGE + offsetX, 220, 1);
   }
 
   Serial.println("Preis-Detail-Screen vollständig gezeichnet");
@@ -458,7 +458,7 @@ void drawPriceChart(int offsetX) {
   const int chartY = 110;
   const int chartWidth = 300;
   const int chartHeight = 80;
-  const int barWidth = chartWidth / 24;
+  const int barWidth = chartWidth / Layout::CHART_HOURS;
 
   // Chart-Rahmen
   tft.drawRect(chartX, chartY, chartWidth, chartHeight, Colors::BORDER_MAIN);
@@ -468,7 +468,7 @@ void drawPriceChart(int offsetX) {
   float maxPrice = -999.0f;
   int validPrices = 0;
 
-  for (int i = 0; i < 24; i++) {
+  for (int i = 0; i < Layout::CHART_HOURS; i++) {
     if (dayAheadPrices.prices[i].isValid) {
       minPrice = min(minPrice, dayAheadPrices.prices[i].price);
       maxPrice = max(maxPrice, dayAheadPrices.prices[i].price);
@@ -485,11 +485,14 @@ void drawPriceChart(int offsetX) {
 
   // Preisbereich anzeigen
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("Max: " + String(maxPrice, 2) + "ct", chartX, chartY - 15, 1);
-  tft.drawString("Min: " + String(minPrice, 2) + "ct", chartX + 100, chartY - 15, 1);
+  char maxPriceText[16], minPriceText[16];
+  snprintf(maxPriceText, sizeof(maxPriceText), "Max: %.2fct", maxPrice);
+  snprintf(minPriceText, sizeof(minPriceText), "Min: %.2fct", minPrice);
+  tft.drawString(maxPriceText, chartX, chartY - 15, 1);
+  tft.drawString(minPriceText, chartX + 100, chartY - 15, 1);
 
   // Zeichne Balken für jede Stunde
-  for (int i = 0; i < 24; i++) {
+  for (int i = 0; i < Layout::CHART_HOURS; i++) {
     if (dayAheadPrices.prices[i].isValid) {
       float price = dayAheadPrices.prices[i].price;
 
@@ -518,9 +521,11 @@ void drawPriceChart(int offsetX) {
       tft.fillRect(barX, barY, barWidth - 1, barHeight, barColor);
 
       // Stunden-Label (jede 4. Stunde)
-      if (i % 4 == 0) {
+      if (i % Layout::CHART_HOUR_INTERVAL == 0) {
         tft.setTextColor(Colors::TEXT_LABEL);
-        tft.drawString(String(i), barX, chartY + chartHeight + 2, 1);
+        char hourStr[4];
+        snprintf(hourStr, sizeof(hourStr), "%d", i);
+        tft.drawString(hourStr, barX, chartY + chartHeight + 2, 1);
       }
     }
   }
@@ -806,11 +811,11 @@ uint16_t getTrendColor(SensorData::TrendDirection trend, int index) {
 }
 
 void drawSystemInfo() {
-  int infoX = 240 + antiBurnin.getOffsetX();
-  int infoY = 200;
+  int infoX = Layout::SYSTEM_INFO_X + antiBurnin.getOffsetX();
+  int infoY = Layout::SYSTEM_INFO_Y;
   
   // Erweiterten Bereich löschen
-  tft.fillRect(infoX, infoY, Layout::SYSTEM_INFO_WIDTH, Layout::SYSTEM_INFO_HEIGHT + 20, Colors::BG_MAIN);
+  tft.fillRect(infoX, infoY, Layout::SYSTEM_INFO_WIDTH, Layout::SYSTEM_INFO_HEIGHT + Layout::SYSTEM_INFO_EXTENDED_HEIGHT, Colors::BG_MAIN);
   
   // RAM-Status - einheitlich grau wie Uptime/LDR
   char memText[24];
@@ -860,11 +865,11 @@ void drawSystemInfo() {
 }
 
 void drawNetworkStatus() {
-  int netX = 10 + antiBurnin.getOffsetX();
-  int netY = 200;  // Gleiche Höhe wie System-Info
+  int netX = Layout::NETWORK_INFO_X + antiBurnin.getOffsetX();
+  int netY = Layout::NETWORK_INFO_Y;  // Gleiche Höhe wie System-Info
   
   // Erweiterten Bereich löschen (für 3 Zeilen untereinander)
-  tft.fillRect(netX, netY, 120, Layout::LINE_SPACING * 3, Colors::BG_MAIN);
+  tft.fillRect(netX, netY, Layout::NETWORK_INFO_WIDTH, Layout::LINE_SPACING * Layout::NETWORK_INFO_LINES, Colors::BG_MAIN);
   
   // WiFi-Status (erste Zeile)
   if (systemStatus.wifiConnected) {
@@ -1027,7 +1032,9 @@ void drawProgressBar(int x, int y, int width, float percentage, bool showText) {
   
   if (showText) {
     tft.setTextColor(Colors::TEXT_MAIN);
-    tft.drawString(String(percentage, 0) + "%", x + width + Layout::PADDING_MEDIUM, y - 2, 1);
+    char percentageText[8];
+    snprintf(percentageText, sizeof(percentageText), "%.0f%%", percentage);
+    tft.drawString(percentageText, x + width + Layout::PADDING_MEDIUM, y - 2, 1);
   }
 }
 
