@@ -189,7 +189,9 @@ void drawPriceDetailScreen() {
   // Datum anzeigen
   if (dayAheadPrices.hasData && strlen(dayAheadPrices.date) > 0) {
     tft.setTextColor(Colors::TEXT_LABEL);
-    tft.drawString("Datum: " + String(dayAheadPrices.date), 10 + offsetX, 85, 1);
+    char dateText[64];
+    snprintf(dateText, sizeof(dateText), "Datum: %s", dayAheadPrices.date);
+    tft.drawString(dateText, 10 + offsetX, 85, 1);
   }
 
   // Preis-Chart oder Liste
@@ -258,8 +260,11 @@ void drawPriceChart(int offsetX) {
 
   // Preisbereich anzeigen
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("Max: " + String(maxPrice, 2) + "ct", chartX, chartY - 15, 1);
-  tft.drawString("Min: " + String(minPrice, 2) + "ct", chartX + 100, chartY - 15, 1);
+  char maxPriceText[32], minPriceText[32];
+  snprintf(maxPriceText, sizeof(maxPriceText), "Max: %.2fct", maxPrice);
+  snprintf(minPriceText, sizeof(minPriceText), "Min: %.2fct", minPrice);
+  tft.drawString(maxPriceText, chartX, chartY - 15, 1);
+  tft.drawString(minPriceText, chartX + 100, chartY - 15, 1);
 
   // Zeichne Balken für jede Stunde
   for (int i = 0; i < 24; i++) {
@@ -466,11 +471,11 @@ void drawSensorBox(int index) {
         tft.setTextColor(percentColor);
         
         // Formatierung für Platz sparen: ohne "%" falls zu eng
-        String percentText;
+        char percentText[16];
         if (fabs(percentChange) < 10.0f) { // fabs() für float-Werte verwenden
-          percentText = String(percentChange > 0 ? "+" : "") + String(percentChange, 1) + "%";
+          snprintf(percentText, sizeof(percentText), "%s%.1f%%", percentChange > 0 ? "+" : "", percentChange);
         } else {
-          percentText = String(percentChange > 0 ? "+" : "") + String(percentChange, 0) + "%";
+          snprintf(percentText, sizeof(percentText), "%s%.0f%%", percentChange > 0 ? "+" : "", percentChange);
         }
         
         // Kleine Schrift für Prozentänderung unter dem Preis
@@ -479,7 +484,8 @@ void drawSensorBox(int index) {
     } else if (index == 4) {
       // Verbrauch-Box: Zeige Gesamtverbrauch höher positioniert (wie bei Aktien)
       tft.setTextColor(Colors::TEXT_MAIN);
-      String totalText = String(loadPower, 1) + "kW";
+      char totalText[16];
+      snprintf(totalText, sizeof(totalText), "%.1fkW", loadPower);
       tft.drawString(totalText, boxX + Layout::PADDING_SMALL, boxY + 12, 2); // 3px höher wie bei Aktien
     } else {
       tft.setTextColor(Colors::TEXT_MAIN);  // Immer weiß
@@ -603,16 +609,18 @@ void drawSystemInfo() {
   
   // CPU-Last - einheitlich grau wie Uptime/LDR
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("CPU:" + String(systemStatus.cpuUsageSmoothed, 0) + "%", infoX, infoY + Layout::LINE_SPACING, 1);
+  char cpuText[16];
+  snprintf(cpuText, sizeof(cpuText), "CPU:%.0f%%", systemStatus.cpuUsageSmoothed);
+  tft.drawString(cpuText, infoX, infoY + Layout::LINE_SPACING, 1);
   
   // Uptime und LDR nebeneinander (platzsparend)
-  String uptimeText = "UP:";
+  char uptimeText[16];
   if (systemStatus.uptime < 3600) {
-    uptimeText += String(systemStatus.uptime / 60) + "m";
+    snprintf(uptimeText, sizeof(uptimeText), "UP:%lum", systemStatus.uptime / 60);
   } else if (systemStatus.uptime < 86400) {
-    uptimeText += String(systemStatus.uptime / 3600) + "h";
+    snprintf(uptimeText, sizeof(uptimeText), "UP:%luh", systemStatus.uptime / 3600);
   } else {
-    uptimeText += String(systemStatus.uptime / 86400) + "d";
+    snprintf(uptimeText, sizeof(uptimeText), "UP:%lud", systemStatus.uptime / 86400);
   }
   
   tft.setTextColor(Colors::TEXT_LABEL);
@@ -620,7 +628,9 @@ void drawSystemInfo() {
   
   // LDR-Wert rechts neben Uptime
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString(" LDR:" + String(systemStatus.ldrValue), infoX + 35, infoY + 2 * Layout::LINE_SPACING, 1);
+  char ldrText[16];
+  snprintf(ldrText, sizeof(ldrText), " LDR:%d", systemStatus.ldrValue);
+  tft.drawString(ldrText, infoX + 35, infoY + 2 * Layout::LINE_SPACING, 1);
 }
 
 void drawNetworkStatus() {
@@ -634,11 +644,13 @@ void drawNetworkStatus() {
   if (systemStatus.wifiConnected) {
     tft.setTextColor(Colors::TEXT_LABEL);
     
-    String wifiText = "WiFi:" + String(systemStatus.wifiRSSI) + "dBm ";
+    char wifiText[32];
     int bars = getSignalBars(systemStatus.wifiRSSI);
+    char barText[8] = "";
     for (int i = 0; i < 4; i++) {
-      wifiText += (i < bars) ? "●" : "○";
+      strcat(barText, (i < bars) ? "●" : "○");
     }
+    snprintf(wifiText, sizeof(wifiText), "WiFi:%ddBm %s", systemStatus.wifiRSSI, barText);
     
     tft.drawString(wifiText, netX, netY, 1);
   } else {
@@ -692,7 +704,7 @@ void drawTimeDisplay() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void drawEcoVisualization(int x, int y) {
-  if (loadPower < 0.1f) {
+  if (loadPower < PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
     // Kein Verbrauch - zeige Standby-Symbol
     tft.setTextColor(Colors::TEXT_LABEL);
     tft.drawString("~", x, y, 2);
@@ -941,7 +953,7 @@ void drawConsumptionBar(int x, int y, int width, float maxConsumption) {
   // Robuste Verbrauchsberechnung mit Validierung
   float totalConsumption = max(0.0f, loadPower); // Negative Werte abfangen
   
-  if (totalConsumption < MIN_CONSUMPTION_THRESHOLD) {
+  if (totalConsumption < PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
     // Sehr geringer Verbrauch - zeige leeren Balken
     tft.drawRect(x, y, width, barHeight, Colors::BORDER_PROGRESS);
     return;
@@ -954,8 +966,8 @@ void drawConsumptionBar(int x, int y, int width, float maxConsumption) {
   float batteryUse = 0.0f;
   float gridUse = 0.0f;
   
-  if (remainingConsumption > MIN_CONSUMPTION_THRESHOLD) {
-    if (!isStorageCharging && storagePower > MIN_CONSUMPTION_THRESHOLD) {
+  if (remainingConsumption > PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
+    if (!isStorageCharging && storagePower > PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
       // Batterie entlädt - sichere Berechnung
       batteryUse = max(0.0f, min(storagePower, remainingConsumption));
       gridUse = max(0.0f, remainingConsumption - batteryUse);
@@ -983,17 +995,17 @@ void drawConsumptionBar(int x, int y, int width, float maxConsumption) {
   // Sichere Segment-Breiten berechnung
   int pvWidth = 0, batteryWidth = 0, gridWidth = 0;
   
-  if (totalBarWidth > 0 && totalConsumption > MIN_CONSUMPTION_THRESHOLD) {
+  if (totalBarWidth > 0 && totalConsumption > PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
     // Berechne Anteile mit zusätzlicher Sicherheit
     float pvRatio = (totalConsumption > 0) ? (pvDirectUse / totalConsumption) : 0.0f;
     float batteryRatio = (totalConsumption > 0) ? (batteryUse / totalConsumption) : 0.0f;
     float gridRatio = max(0.0f, 1.0f - pvRatio - batteryRatio);
     
     // Berechne Pixel-Breiten mit Mindestbreiten
-    pvWidth = (pvDirectUse > MIN_CONSUMPTION_THRESHOLD) ? 
-              max((int)(pvRatio * totalBarWidth), (int)MIN_SEGMENT_WIDTH) : 0;
-    batteryWidth = (batteryUse > MIN_CONSUMPTION_THRESHOLD) ? 
-                   max((int)(batteryRatio * totalBarWidth), (int)MIN_SEGMENT_WIDTH) : 0;
+    pvWidth = (pvDirectUse > PowerManagement::MIN_CONSUMPTION_THRESHOLD) ?
+              max((int)(pvRatio * totalBarWidth), PowerManagement::POWER_BAR_MIN_WIDTH) : 0;
+    batteryWidth = (batteryUse > PowerManagement::MIN_CONSUMPTION_THRESHOLD) ?
+                   max((int)(batteryRatio * totalBarWidth), PowerManagement::POWER_BAR_MIN_WIDTH) : 0;
     
     // Grid-Breite als Rest berechnen
     gridWidth = max(0, totalBarWidth - pvWidth - batteryWidth);
@@ -1047,7 +1059,7 @@ void drawConsumptionBar(int x, int y, int width, float maxConsumption) {
 void drawBidirectionalBar(int x, int y, int width, float pvPower, float gridPower, float maxPower) {
   // Bidirektionale Balken-Logik mit berechneten Richtungen
   int centerX = x + width / 2;
-  int barHeight = 4;
+  int barHeight = PowerManagement::BIDIRECTIONAL_BAR_HEIGHT;
   
   // Hintergrund löschen
   tft.fillRect(x, y, width, barHeight, Colors::BG_MAIN);
@@ -1056,7 +1068,7 @@ void drawBidirectionalBar(int x, int y, int width, float pvPower, float gridPowe
   tft.drawFastVLine(centerX, y - 1, barHeight + 2, Colors::BORDER_PROGRESS);
   
   // Prüfe ob gridPower nahe Null ist (perfekte Balance)
-  bool gridNearZero = (gridPower < 0.1f);
+  bool gridNearZero = (gridPower < PowerManagement::GRID_BALANCE_THRESHOLD);
   
   if (gridNearZero) {
     // Perfekte Energiebilanz - zeige Batterie-Symbol
@@ -1088,10 +1100,10 @@ void drawBidirectionalBar(int x, int y, int width, float pvPower, float gridPowe
   // Rahmen um gesamten Balken
   tft.drawRect(x, y, width, barHeight, Colors::BORDER_PROGRESS);
   
-  String status = gridNearZero ? "[BALANCE]" : 
-                 (isGridFeedIn ? "[EINSPEISUNG]" : "[BEZUG]");
-  Serial.printf("🔄 Grid-Balken: %.1fkW %s (PV=%.1f, Load=%.1f, Storage=%.1f)\n", 
-               gridPower, status.c_str(), pvPower, loadPower, storagePower);
+  const char* status = gridNearZero ? "[BALANCE]" :
+                      (isGridFeedIn ? "[EINSPEISUNG]" : "[BEZUG]");
+  Serial.printf("🔄 Grid-Balken: %.1fkW %s (PV=%.1f, Load=%.1f, Storage=%.1f)\n",
+               gridPower, status, pvPower, loadPower, storagePower);
 }
 
 uint16_t getTimeoutBoxColor(bool isTimedOut) {

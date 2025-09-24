@@ -229,7 +229,9 @@ void displayOTAProgress() {
   
   // IP-Adresse für Debugging
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("IP: " + WiFi.localIP().toString(), 10, 220, 1);
+  char ipText[32];
+  snprintf(ipText, sizeof(ipText), "IP: %s", WiFi.localIP().toString().c_str());
+  tft.drawString(ipText, 10, 220, 1);
 }
 
 String getOTAErrorString(ota_error_t error) {
