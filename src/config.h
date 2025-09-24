@@ -211,6 +211,7 @@ namespace NetworkConfig {
     const char* const gridPower = "home/PV/GridCurrentPower";     // Aktuelle Netzleistung (Betrag - Richtung wird berechnet)
     const char* const loadPower = "home/PV/LoadCurrentPower";     // Aktueller Hausverbrauch (immer positiv)
     const char* const storagePower = "home/PV/StorageCurrentPower"; // Aktuelle Speicherleistung (Betrag - Richtung wird berechnet)
+    const char* const wallboxPower = "home/PV/WallboxPower";      // Aktuelle Wallbox-Leistung (immer positiv)
   };
   
   extern const MqttTopics topics;

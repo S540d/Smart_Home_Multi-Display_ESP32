@@ -23,6 +23,7 @@ extern float pvPower;
 extern float gridPower;
 extern float loadPower;
 extern float storagePower;
+extern float wallboxPower;
 
 // Richtungsinformationen
 extern bool isGridFeedIn;
@@ -62,6 +63,7 @@ void drawTimeDisplay();
 void drawProgressBar(int x, int y, int width, float percentage, bool showText = false);
 void drawConsumptionBar(int x, int y, int width, float maxConsumption);
 void drawBidirectionalBar(int x, int y, int width, float pvPower, float gridPower, float maxPower);
+void drawPVDistributionBar(int x, int y, int width, float pvPower);
 void drawIndicator(int x, int y, uint16_t color, bool withBorder = true);
 void drawEcoVisualization(int x, int y);
 void drawTrendArrow(int x, int y, SensorData::TrendDirection trend, int sensorIndex);

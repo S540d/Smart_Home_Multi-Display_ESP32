@@ -729,31 +729,38 @@ void drawSensorBox(int index) {
   
   // Progress Bar für verschiedene Sensoren
   if (sensor.layout.hasProgressBar && !sensor.isTimedOut) {
-    float progressValue = sensor.value;
-    
-    // Skalierung je nach Sensor-Index
-    if (index == 4) { // PV-Leistung: 0-10kW = 0-100% (Werte kommen als kW über MQTT)
-      progressValue = (sensor.value / 10.0f) * 100.0f;
-      progressValue = constrain(progressValue, 0.0f, 100.0f);
-      
-      // Minimum-Sichtbarkeit: Wenn Wert > 0kW aber < 1%, zeige mindestens 1%
-      if (sensor.value > 0 && progressValue < 1.0f) {
-        progressValue = 1.0f;
+    if (index == 5) { // PV-Erzeugung: Spezielle segmentierte Progress Bar
+      drawPVDistributionBar(boxX + Layout::PADDING_SMALL,
+                           boxY + sensor.layout.h - 8,
+                           sensor.layout.w - 2 * Layout::PADDING_SMALL,
+                           sensor.value);
+    } else {
+      float progressValue = sensor.value;
+
+      // Skalierung je nach Sensor-Index
+      if (index == 4) { // PV-Leistung: 0-10kW = 0-100% (Werte kommen als kW über MQTT)
+        progressValue = (sensor.value / 10.0f) * 100.0f;
+        progressValue = constrain(progressValue, 0.0f, 100.0f);
+
+        // Minimum-Sichtbarkeit: Wenn Wert > 0kW aber < 1%, zeige mindestens 1%
+        if (sensor.value > 0 && progressValue < 1.0f) {
+          progressValue = 1.0f;
+        }
+
+        Serial.printf("PV ProgressBar: %.1fkW -> %.1f%% (Skala: 0-10kW)\n",
+                     sensor.value, progressValue);
       }
-      
-      Serial.printf("PV ProgressBar: %.1fkW -> %.1f%% (Skala: 0-10kW)\n", 
-                   sensor.value, progressValue);
+      // Index 3 (Ladestand) bleibt bei sensor.value (bereits in %)
+
+      drawProgressBar(boxX + Layout::PADDING_SMALL,
+                     boxY + sensor.layout.h - 8,
+                     sensor.layout.w - 2 * Layout::PADDING_SMALL,
+                     progressValue, false);
     }
-    // Index 3 (Ladestand) bleibt bei sensor.value (bereits in %)
-    
-    drawProgressBar(boxX + Layout::PADDING_SMALL, 
-                   boxY + sensor.layout.h - 8, 
-                   sensor.layout.w - 2 * Layout::PADDING_SMALL, 
-                   progressValue, false);
   } else if (index == 4) {
     // Debug für PV-Sensor ohne Progress Bar
-    Serial.printf("WARNUNG - PV ProgressBar NICHT gezeichnet: hasProgressBar=%s, isTimedOut=%s\n", 
-                 sensor.layout.hasProgressBar ? "JA" : "NEIN", 
+    Serial.printf("WARNUNG - PV ProgressBar NICHT gezeichnet: hasProgressBar=%s, isTimedOut=%s\n",
+                 sensor.layout.hasProgressBar ? "JA" : "NEIN",
                  sensor.isTimedOut ? "JA" : "NEIN");
   }
   
@@ -1342,6 +1349,106 @@ void drawBidirectionalBar(int x, int y, int width, float pvPower, float gridPowe
                       (isGridFeedIn ? "[EINSPEISUNG]" : "[BEZUG]");
   Serial.printf("🔄 Grid-Balken: %.1fkW %s (PV=%.1f, Load=%.1f, Storage=%.1f)\n",
                gridPower, status, pvPower, loadPower, storagePower);
+}
+
+void drawPVDistributionBar(int x, int y, int width, float pvPower) {
+  // Segmentierte Progress Bar für PV-Erzeugung Aufteilung
+  // Grün: Strom ins Auto (Wallbox), Blau: Strom in Hausspeicher, Rot: Strom ins Netz
+
+  const int MIN_SEGMENT_WIDTH = 3;
+  int barHeight = Layout::PROGRESS_BAR_HEIGHT;
+
+  // Hintergrund löschen
+  tft.fillRect(x, y - 1, width, barHeight + 2, Colors::BG_MAIN);
+
+  if (pvPower < PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
+    // Keine PV-Erzeugung - leerer Balken
+    tft.drawRect(x, y, width, barHeight, Colors::BORDER_PROGRESS);
+    return;
+  }
+
+  // Berechne Energieaufteilung der PV-Erzeugung
+  float totalPV = max(0.0f, pvPower);
+
+  // 1. Priorität: Direkter Hausverbrauch (nicht in der Bar, da das die Basis ist)
+  float directUse = min(totalPV, max(0.0f, loadPower));
+  float remainingPV = max(0.0f, totalPV - directUse);
+
+  // 2. Priorität: Wallbox laden (echte wallboxPower verwenden)
+  float toWallbox = 0.0f;
+  if (remainingPV > 0 && wallboxPower > PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
+    // Verwende echte Wallbox-Leistung, aber maximal so viel wie noch übrig ist
+    toWallbox = min(remainingPV, wallboxPower);
+    remainingPV = max(0.0f, remainingPV - toWallbox);
+  }
+
+  // 3. Priorität: Speicher laden
+  float toStorage = 0.0f;
+  if (remainingPV > 0 && isStorageCharging && storagePower > PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
+    toStorage = min(remainingPV, storagePower);
+    remainingPV = max(0.0f, remainingPV - toStorage);
+  }
+
+  // 4. Rest: Netzeinspeisung
+  float toGrid = remainingPV;
+
+  // Skalierung auf Balkenbreite
+  float maxPV = PowerManagement::MAX_PV_POWER; // 30kW aus config.h
+  float pvRatio = min(totalPV / maxPV, 1.0f);
+  int totalBarWidth = max(1, (int)(width * pvRatio));
+
+  // Berechne Segmentbreiten
+  int wallboxWidth = 0, storageWidth = 0, gridWidth = 0;
+
+  if (totalBarWidth > 0 && totalPV > PowerManagement::MIN_CONSUMPTION_THRESHOLD) {
+    float wallboxRatio = (totalPV > 0) ? (toWallbox / totalPV) : 0.0f;
+    float storageRatio = (totalPV > 0) ? (toStorage / totalPV) : 0.0f;
+    float gridRatio = (totalPV > 0) ? (toGrid / totalPV) : 0.0f;
+
+    // Pixel-Breiten mit Mindestbreiten
+    wallboxWidth = (toWallbox > PowerManagement::MIN_CONSUMPTION_THRESHOLD) ?
+                   max((int)(wallboxRatio * totalBarWidth), MIN_SEGMENT_WIDTH) : 0;
+    storageWidth = (toStorage > PowerManagement::MIN_CONSUMPTION_THRESHOLD) ?
+                   max((int)(storageRatio * totalBarWidth), MIN_SEGMENT_WIDTH) : 0;
+    gridWidth = (toGrid > PowerManagement::MIN_CONSUMPTION_THRESHOLD) ?
+                max((int)(gridRatio * totalBarWidth), MIN_SEGMENT_WIDTH) : 0;
+
+    // Überlauf korrigieren
+    if (wallboxWidth + storageWidth + gridWidth > totalBarWidth) {
+      float scale = (float)totalBarWidth / (wallboxWidth + storageWidth + gridWidth);
+      wallboxWidth = (int)(wallboxWidth * scale);
+      storageWidth = (int)(storageWidth * scale);
+      gridWidth = totalBarWidth - wallboxWidth - storageWidth;
+    }
+  }
+
+  // Segmente zeichnen
+  int currentX = x;
+
+  // Wallbox-Segment (grün)
+  if (wallboxWidth > 0) {
+    tft.fillRect(currentX, y, wallboxWidth, barHeight, Colors::STATUS_GREEN);
+    currentX += wallboxWidth;
+  }
+
+  // Speicher-Segment (blau/cyan)
+  if (storageWidth > 0 && currentX < x + width) {
+    int segmentWidth = min(storageWidth, (x + width) - currentX);
+    tft.fillRect(currentX, y, segmentWidth, barHeight, Colors::STATUS_BLUE);
+    currentX += storageWidth;
+  }
+
+  // Netz-Segment (rot)
+  if (gridWidth > 0 && currentX < x + width) {
+    int segmentWidth = min(gridWidth, (x + width) - currentX);
+    tft.fillRect(currentX, y, segmentWidth, barHeight, Colors::STATUS_RED);
+  }
+
+  // Rahmen um verfügbaren Bereich
+  tft.drawRect(x, y, totalBarWidth, barHeight, Colors::BORDER_PROGRESS);
+
+  Serial.printf("🔋 PV-Distribution: %.1fkW (Wallbox:%.2f Speicher:%.2f Netz:%.2f) Breiten:(%d,%d,%d)\n",
+                totalPV, toWallbox, toStorage, toGrid, wallboxWidth, storageWidth, gridWidth);
 }
 
 uint16_t getTimeoutBoxColor(bool isTimedOut) {

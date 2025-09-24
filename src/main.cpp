@@ -60,6 +60,7 @@ float pvPower = 0.0f;      // PV-Erzeugung
 float gridPower = 0.0f;    // Netz-Leistung (Betrag)
 float loadPower = 0.0f;    // Hausverbrauch
 float storagePower = 0.0f; // Speicher-Leistung (Betrag)
+float wallboxPower = 0.0f; // Wallbox-Leistung
 
 // Letzte gültige Werte für stabile Berechnungen
 LastValidPowerValues lastValidPower;
@@ -451,12 +452,17 @@ void handleTouchEvent(const TouchEvent& event) {
             renderManager.markFullRedrawRequired();
             break;
 
-          case 3: // Ladestand-Box - Wechsel zur Ladestand-Detail-Ansicht
+          case 1: // Preis-Box - Wechsel zur Preis-Detail-Ansicht
+            currentMode = PRICE_DETAIL_SCREEN;
+            renderManager.markFullRedrawRequired();
+            break;
+
+          case 3: // Ladestand-Box - Wechsel zur Ladestand-Ansicht
             currentMode = LADESTAND_SCREEN;
             renderManager.markFullRedrawRequired();
             break;
 
-          case 4: // Verbrauch-Box - Wechsel zur Wallbox-Verbrauch-Ansicht
+          case 4: // Verbrauch-Box - Wechsel zur Verbrauch-Ansicht (Wallbox Consumption)
             currentMode = WALLBOX_CONSUMPTION_SCREEN;
             renderManager.markFullRedrawRequired();
             break;

@@ -160,10 +160,11 @@ void reconnectMQTT() {
       NetworkConfig::topics.gridPower,
       NetworkConfig::topics.loadPower,
       NetworkConfig::topics.storagePower,
+      NetworkConfig::topics.wallboxPower,
       NetworkConfig::topics.energyMarketPriceDayAhead
     };
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
       if (client.subscribe(specialTopics[i])) {
         successCount++;
         Serial.printf("✓ Special: %s\n", specialTopics[i]);
@@ -314,7 +315,21 @@ void processMqttMessage(const char* topic, const String& message) {
       Serial.printf("Speicher-Leistung: %.1fkW (Richtung wird berechnet)\n", storagePower);
       updatePVNetDisplay();
     }
-    
+
+  } else if (strcmp(topic, NetworkConfig::topics.wallboxPower) == 0) {
+    float newWallboxPower = abs(message.toFloat()); // Immer positiver Wert
+    if (wallboxPower != newWallboxPower) {
+      wallboxPower = newWallboxPower;
+      // Speichere als letzten gültigen Wert wenn plausibel
+      if (wallboxPower >= 0.0f && wallboxPower < 30.0f) { // Max 30kW für Wallbox
+        lastValidPower.wallboxPower = wallboxPower;
+        lastValidPower.wallboxPowerTime = millis();
+      }
+      Serial.printf("Wallbox-Leistung: %.1fkW\n", wallboxPower);
+      // Markiere PV-Sensor für Update (Index 5) da die PV-Distribution davon abhängt
+      renderManager.markSensorChanged(5);
+    }
+
   // Calendar functionality removed
     
   } else if (strcmp(topic, NetworkConfig::topics.historyResponse) == 0) {
@@ -426,6 +441,7 @@ void updatePVNetDisplay() {
   float workingGridPower = gridPower;
   float workingLoadPower = loadPower;
   float workingStoragePower = storagePower;
+  float workingWallboxPower = wallboxPower;
 
   unsigned long now = millis();
   const unsigned long MAX_AGE_MS = 300000; // 5 Minuten maximales Alter
@@ -457,6 +473,14 @@ void updatePVNetDisplay() {
       lastValidPower.storagePower >= 0.0f) {
     workingStoragePower = lastValidPower.storagePower;
     Serial.printf("📅 Verwende letzten Storage-Wert: %.1fkW\n", workingStoragePower);
+  }
+
+  // Wallbox Power Fallback
+  if ((wallboxPower < 0.0f || wallboxPower >= 30.0f) &&
+      (now - lastValidPower.wallboxPowerTime) < MAX_AGE_MS &&
+      lastValidPower.wallboxPower >= 0.0f) {
+    workingWallboxPower = lastValidPower.wallboxPower;
+    Serial.printf("📅 Verwende letzten Wallbox-Wert: %.1fkW\n", workingWallboxPower);
   }
 
   // Robuste Power-Validierung mit Working-Werten
@@ -496,11 +520,13 @@ void updatePVNetDisplay() {
   float originalGridPower = gridPower;
   float originalLoadPower = loadPower;
   float originalStoragePower = storagePower;
+  float originalWallboxPower = wallboxPower;
 
   pvPower = workingPvPower;
   gridPower = workingGridPower;
   loadPower = workingLoadPower;
   storagePower = workingStoragePower;
+  wallboxPower = workingWallboxPower;
   
   // Richtungen berechnen
   calculatePowerDirections();
@@ -515,6 +541,7 @@ void updatePVNetDisplay() {
   gridPower = originalGridPower;
   loadPower = originalLoadPower;
   storagePower = originalStoragePower;
+  wallboxPower = originalWallboxPower;
 
   // Sensor als geändert markieren
   sensors[4].hasChanged = true;
@@ -598,11 +625,50 @@ void processDayAheadPriceData(const String& message) {
     Serial.printf("✅ Day-Ahead Daten verarbeitet: %d Preise für %s\n",
                   hourIndex, dayAheadPrices.date);
 
-    // Wenn wir in der Preis-Detail-Ansicht sind, Display aktualisieren
+    // Aktuellen Preis für Haupt-Display extrahieren und in Sensor[1] setzen
+    if (hourIndex > 0) {
+      // Finde aktuelle Stunde
+      time_t nowTime = time(nullptr);
+      struct tm* currentTimeInfo = localtime(&nowTime);
+      int currentHour = currentTimeInfo->tm_hour;
+
+      // Verwende aktuellen Preis wenn verfügbar, sonst ersten verfügbaren
+      float currentDayAheadPrice = 0.0f;
+      bool foundCurrentPrice = false;
+
+      if (currentHour < 24 && dayAheadPrices.prices[currentHour].isValid) {
+        currentDayAheadPrice = dayAheadPrices.prices[currentHour].price;
+        foundCurrentPrice = true;
+        Serial.printf("📈 Aktueller Day-Ahead Preis (%02d:00): %.2f ct/kWh\n", currentHour, currentDayAheadPrice);
+      } else {
+        // Fallback: Finde ersten gültigen Preis
+        for (int i = 0; i < 24; i++) {
+          if (dayAheadPrices.prices[i].isValid) {
+            currentDayAheadPrice = dayAheadPrices.prices[i].price;
+            Serial.printf("📈 Day-Ahead Preis (Fallback %02d:00): %.2f ct/kWh\n", i, currentDayAheadPrice);
+            break;
+          }
+        }
+      }
+
+      // Update Sensor[1] (Preis-Box) mit aktuellem Day-Ahead Preis
+      if (currentDayAheadPrice > 0.0f) {
+        updateSensorValue(1, currentDayAheadPrice);
+        Serial.printf("🔄 Preis-Sensor aktualisiert: %.2f ct/kWh\n", currentDayAheadPrice);
+      }
+    }
+
+    // Rate-Limited Display Update: Nur alle 30 Sekunden, um Touch-Konflikte zu vermeiden
+    static unsigned long lastDisplayUpdate = 0;
+    unsigned long now = millis();
+
     extern DisplayMode currentMode;
-    if (currentMode == PRICE_DETAIL_SCREEN) {
+    if (currentMode == PRICE_DETAIL_SCREEN &&
+        (now - lastDisplayUpdate) > 30000) { // 30 Sekunden Mindestabstand
       extern RenderManager renderManager;
       renderManager.markFullRedrawRequired();
+      lastDisplayUpdate = now;
+      Serial.println("🔄 Day-Ahead Display Update (rate-limited)");
     }
   } else {
     Serial.println("❌ Fehler beim Parsen der Day-Ahead Daten - kein prices Array gefunden");

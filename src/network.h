@@ -24,6 +24,7 @@ extern float pvPower;          // Aktuelle PV-Erzeugungsleistung (immer positiv)
 extern float gridPower;        // Aktuelle Netzleistung (Betrag, Richtung über isGridFeedIn)
 extern float loadPower;        // Aktueller Hausverbrauch (immer positiv)
 extern float storagePower;     // Aktuelle Speicherleistung (Betrag, Richtung über isStorageCharging)
+extern float wallboxPower;     // Aktuelle Wallbox-Leistung (immer positiv)
 
 // Richtungsinformationen für Energiefluss
 extern bool isGridFeedIn;      // true = Netzeinspeisung, false = Netzbezug
@@ -36,10 +37,12 @@ struct LastValidPowerValues {
   float gridPower;               // Letzter gültiger Netzleistungswert (kW)
   float loadPower;               // Letzter gültiger Verbrauchswert (kW)
   float storagePower;            // Letzter gültiger Speicherleistungswert (kW)
+  float wallboxPower;            // Letzter gültiger Wallbox-Leistungswert (kW)
   unsigned long pvPowerTime;     // Zeitstempel des letzten PV-Updates (millis())
   unsigned long gridPowerTime;   // Zeitstempel des letzten Netz-Updates (millis())
   unsigned long loadPowerTime;   // Zeitstempel des letzten Verbrauchs-Updates (millis())
   unsigned long storagePowerTime; // Zeitstempel des letzten Speicher-Updates (millis())
+  unsigned long wallboxPowerTime; // Zeitstempel des letzten Wallbox-Updates (millis())
 };
 extern LastValidPowerValues lastValidPower;
 
