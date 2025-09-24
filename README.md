@@ -4,21 +4,39 @@ A WiFi-connected smart home display system built on ESP32 that shows real-time s
 
 ## Features
 
-- **Real-time Data Display**: Shows multiple sensor readings including:
-  - Renewable energy share percentage
-  - Current electricity price
-  - Wallbox power consumption
-  - Car charging level
-  - Water temperature
-  - Outdoor temperature
-  - Stock prices with trend indicators
-- **MQTT Integration**: Receives data via MQTT protocol
-- **WiFi Connectivity**: Automatic connection and reconnection handling
-- **Anti-Burn-in Protection**: Prevents display burn-in with content shifting
-- **OTA Updates**: Over-the-air firmware updates
-- **Ambient Light Detection**: LDR sensor for display brightness adjustment
-- **Memory Management**: Continuous monitoring with automatic cleanup
-- **Modular Architecture**: Clean, maintainable code structure
+### 🏠 **Smart Home Dashboard**
+- **Real-time Data Display**: Shows comprehensive energy and environmental data:
+  - 🌱 Renewable energy share percentage with status indicators
+  - 💰 Current electricity price + Day-Ahead market prices
+  - ⚡ PV generation with intelligent energy distribution visualization
+  - 🔋 House battery and car charging levels
+  - 🏠 Home consumption and wallbox power monitoring
+  - 🌡️ Water and outdoor temperature readings
+  - 📈 Stock prices with trend analysis and percentage changes
+
+### 📱 **Interactive Touch Interface**
+- **Touch Navigation**: Tap any sensor box to access detailed subpages
+  - 🌱 **Renewable Energy Details**: Ökostrom analysis with 24h price charts
+  - 💰 **Price Analysis**: Day-Ahead electricity prices with hourly breakdown
+  - 🔋 **Charging Status**: Battery levels for house storage and car
+  - ⚡ **Consumption Monitor**: Home usage and wallbox power details
+  - ⚙️ **Settings**: Touch calibration and system information
+
+### ⚡ **Advanced Energy Visualization**
+- **Segmented Progress Bars**: PV energy distribution shows:
+  - 🟢 Green: Power flowing to car/wallbox
+  - 🔵 Blue: Power charging house battery
+  - 🔴 Red: Power fed back to grid
+- **Bidirectional Energy Flow**: Visual representation of grid import/export
+- **Real-time Power Management**: Smart energy routing visualization
+
+### 🔧 **System Features**
+- **MQTT Integration**: Comprehensive IoT connectivity with 15+ topics
+- **WiFi Connectivity**: Robust auto-reconnection with signal strength display
+- **Anti-Burn-in Protection**: Intelligent pixel shifting to preserve display
+- **OTA Updates**: Seamless over-the-air firmware updates
+- **Memory Management**: Advanced heap monitoring with automatic cleanup
+- **Performance Optimization**: Selective rendering and change detection
 
 ## Hardware Requirements
 
@@ -81,21 +99,40 @@ A WiFi-connected smart home display system built on ESP32 that shows real-time s
 
 The system subscribes to the following MQTT topics (configured in `config.h`):
 
-- `home/energy/renewable_share` - Renewable energy percentage
-- `home/energy/electricity_price` - Current electricity price
-- `home/wallbox/power` - Wallbox power consumption
-- `home/car/charging_level` - Car battery level
-- `home/sensors/water_temp` - Water temperature
-- `home/sensors/outdoor_temp` - Outdoor temperature
-- `home/finance/stock_price` - Stock price data
+#### **Core Sensor Data**
+- `home/PV/Share_renewable` - Renewable energy percentage
+- `home/PV/EnergyPrice` - Current electricity price
+- `home/PV/EnergyPriceDayAhead` - Day-Ahead market prices (24h JSON data)
+- `home/stocks/CL2PACurr` - Stock price (current)
+- `home/stocks/CL2PARef` - Stock price (reference)
+- `home/stocks/CL2PAPrevClose` - Stock price (previous close)
+- `home/Weather/OutdoorTemperature` - Outdoor temperature
+- `home/Heating/WaterTemperature` - Water temperature
+
+#### **Power Management (all values in kW)**
+- `home/PV/PVCurrentPower` - Current PV generation
+- `home/PV/GridCurrentPower` - Grid power (import/export)
+- `home/PV/LoadCurrentPower` - Total house consumption
+- `home/PV/StorageCurrentPower` - Battery charging/discharging
+- `home/PV/WallboxPower` - Electric car charging power
+- `home/PV/chargingLevel` - House battery charge level (%)
 
 ### Display Layout
 
-The 320x240 display shows:
-- **Top row**: WiFi and MQTT status indicators
-- **Sensor grid**: 6 sensor value boxes with progress bars
-- **Bottom area**: System information and time
-- **Visual indicators**: Color-coded status and trend arrows
+The 320x240 display features a sophisticated **3x3 grid layout**:
+
+#### **Main Screen**
+- **Row 1**: Market/Financial data (Renewable %, Price, Stock)
+- **Row 2**: Power/Charge data (Battery %, Consumption, PV Generation)
+- **Row 3**: Environmental data (Outdoor temp, Water temp, Settings)
+- **Status Bar**: WiFi/MQTT indicators, current time
+- **System Info**: RAM usage, CPU load, uptime, LDR sensor
+
+#### **Interactive Elements**
+- **Touch-sensitive sensor boxes** with color-coded status indicators
+- **Progress bars** with intelligent scaling and color coding
+- **Trend arrows** showing value changes over time
+- **Anti-burn-in** content shifting every 15 minutes
 
 ## Architecture
 
