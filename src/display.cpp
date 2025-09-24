@@ -821,7 +821,7 @@ void drawSystemInfo() {
   } else {
     snprintf(memText, sizeof(memText), "RAM:%luB", systemStatus.freeHeap);
   }
-  
+
   if (systemStatus.lowMemoryWarning) {
     size_t len = strlen(memText);
     if (len < sizeof(memText) - 1) {
