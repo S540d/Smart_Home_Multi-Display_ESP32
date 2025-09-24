@@ -68,6 +68,11 @@ void updateDisplay() {
       renderManager.clearAllFlags();
       return;
 
+    case DAYAHEAD_SCREEN:
+      drawPriceDetailScreen();
+      renderManager.clearAllFlags();
+      return;
+
     case SETTINGS_SCREEN:
       drawSettingsScreen();
       renderManager.clearAllFlags();

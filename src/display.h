@@ -45,6 +45,7 @@ extern TouchManager touchManager;
 void updateDisplay();
 void drawHomeScreen();
 void drawPriceDetailScreen();
+void drawDayAheadDetailScreen();
 void drawPriceAnalytics(int offsetX);
 void drawSimplePriceChart(int x, int y, int width, int height);
 void drawOekostromDetailScreen();

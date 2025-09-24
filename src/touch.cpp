@@ -236,30 +236,22 @@ void TouchManager::updateSensorTouchAreas() {
     return;
   }
 
-  // Hardcoded Touch-Bereiche basierend auf aktuellem 2x4 Layout
-  // Ökostrom (Sensor 0) - oben links
-  touchAreas[0] = TouchArea(0, 0, 160, 60, 0);
+  // Touch-Bereiche basierend auf tatsächlichen Sensor-Positionen aus sensors.cpp
+  // Mit reduzierten Höhen um Überlappungen zu vermeiden (40px → 35px)
 
-  // Preis (Sensor 1) - oben rechts
-  touchAreas[1] = TouchArea(160, 0, 160, 60, 1);
+  // Reihe 1: Markt/Finanzen-Gruppe
+  touchAreas[0] = TouchArea(10, 35, Layout::SENSOR_BOX_WIDTH, 35, 0);   // Ökostrom
+  touchAreas[1] = TouchArea(115, 35, Layout::SENSOR_BOX_WIDTH, 35, 1);  // Preis
+  touchAreas[2] = TouchArea(220, 35, Layout::SENSOR_BOX_WIDTH, 35, 2);  // Aktie
 
-  // Aktie (Sensor 2) - zweite Reihe links
-  touchAreas[2] = TouchArea(0, 60, 160, 60, 2);
+  // Reihe 2: Power/Charge-Gruppe
+  touchAreas[3] = TouchArea(10, 85, Layout::SENSOR_BOX_WIDTH, 35, 3);   // Ladestand
+  touchAreas[4] = TouchArea(115, 85, Layout::SENSOR_BOX_WIDTH, 35, 4);  // Verbrauch
+  touchAreas[5] = TouchArea(220, 85, Layout::SENSOR_BOX_WIDTH, 35, 5);  // PV-Erzeugung
 
-  // Ladestand (Sensor 3) - zweite Reihe rechts
-  touchAreas[3] = TouchArea(160, 60, 160, 60, 3);
-
-  // Verbrauch (Sensor 4) - dritte Reihe links
-  touchAreas[4] = TouchArea(0, 120, 160, 60, 4);
-
-  // Wallbox (Sensor 5) - dritte Reihe rechts
-  touchAreas[5] = TouchArea(160, 120, 160, 60, 5);
-
-  // Außentemperatur (Sensor 6) - unten links
-  touchAreas[6] = TouchArea(0, 180, 160, 60, 6);
-
-  // Wassertemperatur (Sensor 7) - unten rechts
-  touchAreas[7] = TouchArea(160, 180, 160, 60, 7);
+  // Reihe 3: Umwelt-Gruppe
+  touchAreas[6] = TouchArea(10, 135, Layout::SENSOR_BOX_WIDTH, 35, 6);  // Außentemperatur
+  touchAreas[7] = TouchArea(115, 135, Layout::SENSOR_BOX_WIDTH, 35, 7); // Wassertemperatur
 
 }
 

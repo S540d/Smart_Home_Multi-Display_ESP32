@@ -141,33 +141,37 @@ void reconnectMQTT() {
     
     // Standard-Sensor Topics (ohne leere)
     for (int i = 0; i < System::SENSOR_COUNT; i++) {
-      if (strlen(NetworkConfig::topics.data[i]) > 0) {
-        if (client.subscribe(NetworkConfig::topics.data[i])) {
+      if (strlen(NetworkConfig::TOPIC_DATA[i]) > 0) {
+        if (client.subscribe(NetworkConfig::TOPIC_DATA[i])) {
           successCount++;
-          Serial.printf("✓ Subscribed: %s\n", NetworkConfig::topics.data[i]);
+          Serial.printf("✓ Subscribed: %s\n", NetworkConfig::TOPIC_DATA[i]);
         } else {
-          Serial.printf("✗ Failed: %s\n", NetworkConfig::topics.data[i]);
+          Serial.printf("✗ Failed: %s\n", NetworkConfig::TOPIC_DATA[i]);
         }
       }
     }
     
     // Spezial-Topics
     const char* specialTopics[] = {
-      NetworkConfig::topics.stockReference,
-      NetworkConfig::topics.stockPreviousClose,
-      NetworkConfig::topics.historyResponse,
-      NetworkConfig::topics.pvPower,
-      NetworkConfig::topics.gridPower,
-      NetworkConfig::topics.loadPower,
-      NetworkConfig::topics.storagePower,
-      NetworkConfig::topics.wallboxPower,
-      NetworkConfig::topics.energyMarketPriceDayAhead
+      NetworkConfig::STOCK_REFERENCE,
+      NetworkConfig::STOCK_PREVIOUS_CLOSE,
+      NetworkConfig::HISTORY_RESPONSE,
+      NetworkConfig::PV_POWER,
+      NetworkConfig::GRID_POWER,
+      NetworkConfig::LOAD_POWER,
+      NetworkConfig::STORAGE_POWER,
+      NetworkConfig::WALLBOX_POWER,
+      NetworkConfig::ENERGY_MARKET_PRICE_DAY_AHEAD
     };
 
     for (int i = 0; i < 9; i++) {
       if (client.subscribe(specialTopics[i])) {
         successCount++;
         Serial.printf("✓ Special: %s\n", specialTopics[i]);
+        // Debug: Spezielle Meldung für Day-Ahead Topic
+        if (strcmp(specialTopics[i], NetworkConfig::ENERGY_MARKET_PRICE_DAY_AHEAD) == 0) {
+          Serial.printf("   📊 Day-Ahead Topic erfolgreich abonniert!\n");
+        }
       } else {
         Serial.printf("✗ Special Failed: %s\n", specialTopics[i]);
       }
@@ -228,21 +232,22 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   message[length] = '\0';
   
   Serial.printf("MQTT: %s = %s\n", topic, message);
-  
+
+
   processMqttMessage(topic, String(message));
 }
 
 void processMqttMessage(const char* topic, const String& message) {
   // Standard Sensor-Daten verarbeiten (außer PV/Netz und Eco-Score)
   for (int i = 0; i < System::SENSOR_COUNT; i++) {
-    if (strlen(NetworkConfig::topics.data[i]) > 0 && strcmp(topic, NetworkConfig::topics.data[i]) == 0) {
+    if (strlen(NetworkConfig::TOPIC_DATA[i]) > 0 && strcmp(topic, NetworkConfig::TOPIC_DATA[i]) == 0) {
       updateSensorValue(i, message.toFloat());
       return;
     }
   }
   
   // Spezielle Topics verarbeiten
-  if (strcmp(topic, NetworkConfig::topics.stockReference) == 0) {
+  if (strcmp(topic, NetworkConfig::STOCK_REFERENCE) == 0) {
     float newRef = message.toFloat();
     if (stockReference != newRef) {
       stockReference = newRef;
@@ -252,7 +257,7 @@ void processMqttMessage(const char* topic, const String& message) {
         renderManager.markSensorChanged(2);
       }
     }
-  } else if (strcmp(topic, NetworkConfig::topics.stockPreviousClose) == 0) {
+  } else if (strcmp(topic, NetworkConfig::STOCK_PREVIOUS_CLOSE) == 0) {
     float newPrevClose = message.toFloat();
     if (stockPreviousClose != newPrevClose) {
       stockPreviousClose = newPrevClose;
@@ -264,7 +269,7 @@ void processMqttMessage(const char* topic, const String& message) {
     }
     
   // Power Management Topics
-  } else if (strcmp(topic, NetworkConfig::topics.pvPower) == 0) {
+  } else if (strcmp(topic, NetworkConfig::PV_POWER) == 0) {
     float newPVPower = message.toFloat();
     if (pvPower != newPVPower) {
       pvPower = newPVPower;
@@ -277,7 +282,7 @@ void processMqttMessage(const char* topic, const String& message) {
       updatePVNetDisplay();
     }
 
-  } else if (strcmp(topic, NetworkConfig::topics.gridPower) == 0) {
+  } else if (strcmp(topic, NetworkConfig::GRID_POWER) == 0) {
     float newGridPower = abs(message.toFloat()); // Immer positiver Wert
     if (gridPower != newGridPower) {
       gridPower = newGridPower;
@@ -290,7 +295,7 @@ void processMqttMessage(const char* topic, const String& message) {
       updatePVNetDisplay();
     }
 
-  } else if (strcmp(topic, NetworkConfig::topics.loadPower) == 0) {
+  } else if (strcmp(topic, NetworkConfig::LOAD_POWER) == 0) {
     float newLoadPower = message.toFloat();
     if (loadPower != newLoadPower) {
       loadPower = newLoadPower;
@@ -303,7 +308,7 @@ void processMqttMessage(const char* topic, const String& message) {
       updatePVNetDisplay();
     }
 
-  } else if (strcmp(topic, NetworkConfig::topics.storagePower) == 0) {
+  } else if (strcmp(topic, NetworkConfig::STORAGE_POWER) == 0) {
     float newStoragePower = abs(message.toFloat()); // Immer positiver Wert
     if (storagePower != newStoragePower) {
       storagePower = newStoragePower;
@@ -316,7 +321,7 @@ void processMqttMessage(const char* topic, const String& message) {
       updatePVNetDisplay();
     }
 
-  } else if (strcmp(topic, NetworkConfig::topics.wallboxPower) == 0) {
+  } else if (strcmp(topic, NetworkConfig::WALLBOX_POWER) == 0) {
     float newWallboxPower = abs(message.toFloat()); // Immer positiver Wert
     if (wallboxPower != newWallboxPower) {
       wallboxPower = newWallboxPower;
@@ -332,11 +337,11 @@ void processMqttMessage(const char* topic, const String& message) {
 
   // Calendar functionality removed
     
-  } else if (strcmp(topic, NetworkConfig::topics.historyResponse) == 0) {
+  } else if (strcmp(topic, NetworkConfig::HISTORY_RESPONSE) == 0) {
     Serial.printf("History-Response: %s\n", message.c_str());
     // Note: History screen feature to be implemented in future version
 
-  } else if (strcmp(topic, NetworkConfig::topics.energyMarketPriceDayAhead) == 0) {
+  } else if (strcmp(topic, NetworkConfig::ENERGY_MARKET_PRICE_DAY_AHEAD) == 0) {
     processDayAheadPriceData(message);
 
   } else {
@@ -569,48 +574,52 @@ void processDayAheadPriceData(const String& message) {
 
   Serial.printf("   Datum gesetzt auf: %s\n", dayAheadPrices.date);
 
-  // Parse Array-Format: [{"t":timestamp,"v":value},...]
+  // Parse neues Format: [{"h":hour,"v":value},...]
   if (message.startsWith("[") && message.endsWith("]")) {
     int currentPos = 1; // Nach "["
-    int hourIndex = 0;
+    int entryCount = 0;
 
-    while (currentPos < message.length() - 1 && hourIndex < 24) {
-      // Suche nach {"t":
-      int tStart = message.indexOf("\"t\":", currentPos);
-      if (tStart == -1) break;
-      tStart += 4;
+    while (currentPos < message.length() - 1 && entryCount < 24) {
+      // Suche nach {"h":
+      int hStart = message.indexOf("\"h\":", currentPos);
+      if (hStart == -1) break;
+      hStart += 4;
 
-      // Suche nach Wert (Timestamp)
-      int tEnd = message.indexOf(",", tStart);
-      if (tEnd == -1) break;
+      // Suche nach Stunden-Wert
+      int hEnd = message.indexOf(",", hStart);
+      if (hEnd == -1) break;
 
-      long timestamp = message.substring(tStart, tEnd).toInt();
+      int hour = message.substring(hStart, hEnd).toInt();
 
       // Suche nach "v":
-      int vStart = message.indexOf("\"v\":", tEnd);
+      int vStart = message.indexOf("\"v\":", hEnd);
       if (vStart == -1) break;
       vStart += 4;
 
-      // Suche nach Wert (Price)
+      // Suche nach Preis-Wert
       int vEnd = message.indexOf("}", vStart);
       if (vEnd == -1) break;
 
       float value = message.substring(vStart, vEnd).toFloat();
 
-      // Konvertiere Timestamp zu Stunde (vereinfacht)
-      char hourStr[6];
-      snprintf(hourStr, sizeof(hourStr), "%02d:00", hourIndex);
+      // Debug: Zeige erste 5 Einträge
+      if (entryCount < 5) {
+        Serial.printf("🔍 Eintrag %d: Stunde=%d, Wert=%.2f\n", entryCount, hour, value);
+      }
 
-      // Speichere in dayAheadPrices
-      if (hourIndex < 24) {
-        dayAheadPrices.prices[hourIndex].price = value;
-        strncpy(dayAheadPrices.prices[hourIndex].hour, hourStr,
-                sizeof(dayAheadPrices.prices[hourIndex].hour) - 1);
-        dayAheadPrices.prices[hourIndex].hour[sizeof(dayAheadPrices.prices[hourIndex].hour) - 1] = '\0';
-        dayAheadPrices.prices[hourIndex].isValid = true;
+      // Speichere in dayAheadPrices (verwende hour direkt als Index)
+      if (hour >= 0 && hour < 24) {
+        char hourStr[6];
+        snprintf(hourStr, sizeof(hourStr), "%02d:00", hour);
 
-        Serial.printf("   [%d] %s: %.2f EUR/MWh\n", hourIndex, hourStr, value);
-        hourIndex++;
+        dayAheadPrices.prices[hour].price = value;
+        strncpy(dayAheadPrices.prices[hour].hour, hourStr,
+                sizeof(dayAheadPrices.prices[hour].hour) - 1);
+        dayAheadPrices.prices[hour].hour[sizeof(dayAheadPrices.prices[hour].hour) - 1] = '\0';
+        dayAheadPrices.prices[hour].isValid = true;
+
+        Serial.printf("   Stunde %02d:00: %.2f ct/kWh\n", hour, value);
+        entryCount++;
       }
 
       // Nächstes Element
@@ -619,7 +628,7 @@ void processDayAheadPriceData(const String& message) {
       currentPos += 1; // Nach ","
     }
 
-    dayAheadPrices.hasData = (hourIndex > 0);
+    dayAheadPrices.hasData = (entryCount > 0);
     dayAheadPrices.lastUpdate = millis();
 
     // Calculate analytics for enhanced insights
@@ -649,10 +658,10 @@ void processDayAheadPriceData(const String& message) {
     }
 
     Serial.printf("✅ Day-Ahead Daten verarbeitet: %d Preise für %s\n",
-                  hourIndex, dayAheadPrices.date);
+                  entryCount, dayAheadPrices.date);
 
     // Aktuellen Preis für Haupt-Display extrahieren und in Sensor[1] setzen
-    if (hourIndex > 0) {
+    if (entryCount > 0) {
       // Finde aktuelle Stunde
       time_t nowTime = time(nullptr);
       struct tm* currentTimeInfo = localtime(&nowTime);
@@ -689,7 +698,7 @@ void processDayAheadPriceData(const String& message) {
     unsigned long now = millis();
 
     extern DisplayMode currentMode;
-    if (currentMode == PRICE_DETAIL_SCREEN &&
+    if (currentMode == DAYAHEAD_SCREEN &&
         (now - lastDisplayUpdate) > 30000) { // 30 Sekunden Mindestabstand
       extern RenderManager renderManager;
       renderManager.markFullRedrawRequired();

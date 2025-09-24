@@ -150,7 +150,7 @@ namespace System {
   // Memory Management
   constexpr uint32_t MIN_FREE_HEAP = 50000;
   constexpr uint32_t CRITICAL_HEAP_LEVEL = 25000;
-  constexpr int MAX_STRING_LENGTH = 64;
+  constexpr int MAX_STRING_LENGTH = 512;  // Erhöht für Day-Ahead JSON Arrays
   
   // Anti-Burnin
   constexpr int ANTI_BURNIN_MAX_OFFSET = 10;
@@ -188,33 +188,30 @@ namespace NetworkConfig {
   extern const char* const MQTT_USER;
   extern const char* const MQTT_PASS;
   
-  struct MqttTopics {
-    const char* const data[System::SENSOR_COUNT] = {
-      "home/PV/Share_renewable",       // [0] Ökostrom (Reihe 1)
-      "home/PV/EnergyPrice",           // [1] Preis (Reihe 1)
-      "home/stocks/CL2PACurr",         // [2] Aktie (Reihe 1) - war [7]
-      "home/PV/chargingLevel",         // [3] Ladestand des Hausspeichers (Reihe 2)
-      "",                              // [4] PV/Netz (intern berechnet, kein MQTT)
-      "home/PV/PVCurrentPower",          // [5] PV-Erzeugung (war Wallbox)
-      "home/Weather/OutdoorTemperature", // [6] Außen (Reihe 3)
-      "home/Heating/WaterTemperature"   // [7] Wasser (Reihe 3) - war [5]
-    };
-    
-    const char* const stockReference = "home/stocks/CL2PARef";
-    const char* const stockPreviousClose = "home/stocks/CL2PAPrevClose";
-    const char* const historyRequest = "display/history_request";
-    const char* const historyResponse = "display/history_response";
-    const char* const energyMarketPriceDayAhead = "home/PV/EnergyPriceDayAhead";
-    
-    // Power Management Topics (alle Werte in kW als Float)
-    const char* const pvPower = "home/PV/PVCurrentPower";          // Aktuelle PV-Erzeugungsleistung (immer positiv)
-    const char* const gridPower = "home/PV/GridCurrentPower";     // Aktuelle Netzleistung (Betrag - Richtung wird berechnet)
-    const char* const loadPower = "home/PV/LoadCurrentPower";     // Aktueller Hausverbrauch (immer positiv)
-    const char* const storagePower = "home/PV/StorageCurrentPower"; // Aktuelle Speicherleistung (Betrag - Richtung wird berechnet)
-    const char* const wallboxPower = "home/PV/WallboxPower";      // Aktuelle Wallbox-Leistung (immer positiv)
+  // MQTT Topics als direkte Konstanten
+  constexpr const char* const TOPIC_DATA[System::SENSOR_COUNT] = {
+    "home/PV/Share_renewable",       // [0] Ökostrom (Reihe 1)
+    "home/PV/EnergyPrice",           // [1] Preis (Reihe 1)
+    "home/stocks/CL2PACurr",         // [2] Aktie (Reihe 1) - war [7]
+    "home/PV/chargingLevel",         // [3] Ladestand des Hausspeichers (Reihe 2)
+    "",                              // [4] PV/Netz (intern berechnet, kein MQTT)
+    "home/PV/PVCurrentPower",          // [5] PV-Erzeugung (war Wallbox)
+    "home/Weather/OutdoorTemperature", // [6] Außen (Reihe 3)
+    "home/Heating/WaterTemperature"   // [7] Wasser (Reihe 3) - war [5]
   };
-  
-  extern const MqttTopics topics;
+
+  constexpr const char* const STOCK_REFERENCE = "home/stocks/CL2PARef";
+  constexpr const char* const STOCK_PREVIOUS_CLOSE = "home/stocks/CL2PAPrevClose";
+  constexpr const char* const HISTORY_REQUEST = "display/history_request";
+  constexpr const char* const HISTORY_RESPONSE = "display/history_response";
+  constexpr const char* const ENERGY_MARKET_PRICE_DAY_AHEAD = "home/energy/price_forecast_24h";
+
+  // Power Management Topics (alle Werte in kW als Float)
+  constexpr const char* const PV_POWER = "home/PV/PVCurrentPower";          // Aktuelle PV-Erzeugungsleistung (immer positiv)
+  constexpr const char* const GRID_POWER = "home/PV/GridCurrentPower";     // Aktuelle Netzleistung (Betrag - Richtung wird berechnet)
+  constexpr const char* const LOAD_POWER = "home/PV/LoadCurrentPower";     // Aktueller Hausverbrauch (immer positiv)
+  constexpr const char* const STORAGE_POWER = "home/PV/StorageCurrentPower"; // Aktuelle Speicherleistung (Betrag - Richtung wird berechnet)
+  constexpr const char* const WALLBOX_POWER = "home/PV/WallboxPower";      // Aktuelle Wallbox-Leistung (immer positiv)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -485,6 +482,7 @@ enum DisplayMode {
   OEKOSTROM_DETAIL_SCREEN,
   WALLBOX_CONSUMPTION_SCREEN,
   LADESTAND_SCREEN,
+  DAYAHEAD_SCREEN,
   SETTINGS_SCREEN
 };
 

@@ -35,13 +35,13 @@ const char* const System::TIMEZONE = "CET-1CEST,M3.5.0,M10.5.0/3";
 const char* const NetworkConfig::MQTT_USER = "";
 const char* const NetworkConfig::MQTT_PASS = "";
 
-// MQTT Topics Definition
-const NetworkConfig::MqttTopics NetworkConfig::topics;
+// MQTT Topics sind als Konstanten direkt in der Struktur in config.h definiert
 
 // Hardware-Objekte
 TFT_eSPI tft = TFT_eSPI();
 WiFiClient espClient;
 PubSubClient client(espClient);
+
 
 // Kalibrierungs-System wird in TouchManager integriert
 
@@ -114,10 +114,14 @@ void handleTouchEvent(const TouchEvent& event);
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  
+
   // Watchdog deaktivieren während Setup
   esp_task_wdt_init(30, false); // 30 Sekunden Timeout, kein Panic
-  
+
+  // MQTT Buffer Size für Day-Ahead JSON Arrays erhöhen (Standard: 256 Bytes)
+  client.setBufferSize(1024);
+  Serial.printf("MQTT Buffer Size auf 1024 Bytes erhöht\n");
+
   systemStartTime = millis();
   
   Serial.println();
@@ -397,7 +401,7 @@ void handleTouchEvent(const TouchEvent& event) {
       // Touch wurde beendet - hier könnten Click-Actions implementiert werden
 
       // ERST: Prüfe Zurück-Button auf allen Detail-Screens (hat Vorrang)
-      if (currentMode == PRICE_DETAIL_SCREEN ||
+      if (currentMode == DAYAHEAD_SCREEN ||
           currentMode == OEKOSTROM_DETAIL_SCREEN ||
           currentMode == WALLBOX_CONSUMPTION_SCREEN ||
           currentMode == LADESTAND_SCREEN ||
@@ -405,8 +409,15 @@ void handleTouchEvent(const TouchEvent& event) {
         int backButtonX = 270 + antiBurnin.getOffsetX();
         int backButtonY = 10;
 
-        if (event.point.x >= backButtonX && event.point.x <= backButtonX + 40 &&
-            event.point.y >= backButtonY && event.point.y <= backButtonY + 20) {
+        Serial.printf("🔍 Touch bei (%d,%d), Zurück-Button bei (%d,%d) bis (%d,%d)\n",
+                     event.point.x, event.point.y, backButtonX, backButtonY,
+                     backButtonX + 40, backButtonY + 20);
+
+        // Erweiterte Touch-Area für bessere Erkennung (besonders bei Touch-Kalibrierung)
+        int touchMargin = 10;
+        if (event.point.x >= (backButtonX - touchMargin) && event.point.x <= (backButtonX + 40 + touchMargin) &&
+            event.point.y >= (backButtonY - touchMargin) && event.point.y <= (backButtonY + 20 + touchMargin)) {
+          Serial.println("✅ Zurück-Button erkannt - zurück zum Home-Screen");
           currentMode = HOME_SCREEN;
           renderManager.markFullRedrawRequired();
           break; // Wichtig: Weitere Touch-Verarbeitung überspringen
@@ -446,14 +457,17 @@ void handleTouchEvent(const TouchEvent& event) {
 
       // DANN: Normale Sensor-Touch-Verarbeitung (nur auf Home-Screen)
       if (event.sensorIndex >= 0 && currentMode == HOME_SCREEN) {
+        Serial.printf("🔍 Sensor Touch: Index=%d bei (%d,%d)\n",
+                     event.sensorIndex, event.point.x, event.point.y);
+
         switch (event.sensorIndex) {
           case 0: // Ökostrom-Box - Wechsel zur Ökostrom-Detail-Ansicht
             currentMode = OEKOSTROM_DETAIL_SCREEN;
             renderManager.markFullRedrawRequired();
             break;
 
-          case 1: // Preis-Box - Wechsel zur Preis-Detail-Ansicht
-            currentMode = PRICE_DETAIL_SCREEN;
+          case 1: // Preis-Box - Wechsel zur Day-Ahead-Ansicht
+            currentMode = DAYAHEAD_SCREEN;
             renderManager.markFullRedrawRequired();
             break;
 
