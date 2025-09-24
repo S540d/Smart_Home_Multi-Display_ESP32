@@ -128,6 +128,24 @@ namespace Timing {
   constexpr unsigned long TOUCH_MARKER_DURATION_MS = 2000; // 2 Sekunden Touch-Markierung
 }
 
+namespace PowerManagement {
+  // Power thresholds and limits
+  constexpr float MIN_CONSUMPTION_THRESHOLD = 0.1f;  // Minimum power for calculations
+  constexpr float MAX_PV_POWER = 30.0f;             // Maximum expected PV power
+  constexpr float MAX_GRID_POWER = 50.0f;           // Maximum expected grid power
+  constexpr float MAX_LOAD_POWER = 50.0f;           // Maximum expected load power
+  constexpr float MAX_STORAGE_POWER = 20.0f;        // Maximum expected storage power
+  constexpr float GRID_BALANCE_THRESHOLD = 0.1f;    // Grid near-zero threshold
+
+  // Power data ages (milliseconds)
+  constexpr unsigned long MAX_POWER_DATA_AGE_MS = 300000; // 5 minutes
+
+  // Energy flow visualization
+  constexpr int BIDIRECTIONAL_BAR_HEIGHT = 4;
+  constexpr int POWER_BAR_MIN_WIDTH = 10;
+  constexpr int POWER_DISPLAY_PRECISION = 1;  // Decimal places for power display
+}
+
 namespace System {
   // Memory Management
   constexpr uint32_t MIN_FREE_HEAP = 50000;
