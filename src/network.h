@@ -19,27 +19,27 @@ extern SensorData sensors[];
 extern float stockReference;
 extern float stockPreviousClose;
 
-// Power Management Variablen
-extern float pvPower;
-extern float gridPower;
-extern float loadPower;
-extern float storagePower;
+// Power Management Variablen (alle Werte in kW)
+extern float pvPower;          // Aktuelle PV-Erzeugungsleistung (immer positiv)
+extern float gridPower;        // Aktuelle Netzleistung (Betrag, Richtung über isGridFeedIn)
+extern float loadPower;        // Aktueller Hausverbrauch (immer positiv)
+extern float storagePower;     // Aktuelle Speicherleistung (Betrag, Richtung über isStorageCharging)
 
-// Richtungsinformationen
-extern bool isGridFeedIn;
-extern bool isStorageCharging;
+// Richtungsinformationen für Energiefluss
+extern bool isGridFeedIn;      // true = Netzeinspeisung, false = Netzbezug
+extern bool isStorageCharging; // true = Speicher lädt, false = Speicher entlädt
 extern unsigned long lastWifiReconnect;
 
-// Struktur für letzte gültige Power-Werte
+// Struktur für letzte gültige Power-Werte (Backup für MQTT-Ausfälle)
 struct LastValidPowerValues {
-  float pvPower;
-  float gridPower;
-  float loadPower;
-  float storagePower;
-  unsigned long pvPowerTime;
-  unsigned long gridPowerTime;
-  unsigned long loadPowerTime;
-  unsigned long storagePowerTime;
+  float pvPower;                 // Letzter gültiger PV-Erzeugungswert (kW)
+  float gridPower;               // Letzter gültiger Netzleistungswert (kW)
+  float loadPower;               // Letzter gültiger Verbrauchswert (kW)
+  float storagePower;            // Letzter gültiger Speicherleistungswert (kW)
+  unsigned long pvPowerTime;     // Zeitstempel des letzten PV-Updates (millis())
+  unsigned long gridPowerTime;   // Zeitstempel des letzten Netz-Updates (millis())
+  unsigned long loadPowerTime;   // Zeitstempel des letzten Verbrauchs-Updates (millis())
+  unsigned long storagePowerTime; // Zeitstempel des letzten Speicher-Updates (millis())
 };
 extern LastValidPowerValues lastValidPower;
 

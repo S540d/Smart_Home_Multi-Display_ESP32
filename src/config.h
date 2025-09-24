@@ -129,21 +129,21 @@ namespace Timing {
 }
 
 namespace PowerManagement {
-  // Power thresholds and limits
-  constexpr float MIN_CONSUMPTION_THRESHOLD = 0.1f;  // Minimum power for calculations
-  constexpr float MAX_PV_POWER = 30.0f;             // Maximum expected PV power
-  constexpr float MAX_GRID_POWER = 50.0f;           // Maximum expected grid power
-  constexpr float MAX_LOAD_POWER = 50.0f;           // Maximum expected load power
-  constexpr float MAX_STORAGE_POWER = 20.0f;        // Maximum expected storage power
-  constexpr float GRID_BALANCE_THRESHOLD = 0.1f;    // Grid near-zero threshold
+  // Power thresholds and limits (in kW)
+  constexpr float MIN_CONSUMPTION_THRESHOLD = 0.1f;  // Minimaler Leistungswert für Berechnungen - unter diesem Wert wird als "kein Verbrauch" gewertet
+  constexpr float MAX_PV_POWER = 30.0f;             // Maximale erwartete PV-Anlagenleistung für Skalierung der Balkenanzeigen
+  constexpr float MAX_GRID_POWER = 50.0f;           // Maximale erwartete Netzleistung (Bezug/Einspeisung) für Balken-Skalierung
+  constexpr float MAX_LOAD_POWER = 50.0f;           // Maximaler erwarteter Hausverbrauch für Skalierung der Verbrauchsanzeige
+  constexpr float MAX_STORAGE_POWER = 20.0f;        // Maximale Speicherleistung (Laden/Entladen) für Balken-Skalierung
+  constexpr float GRID_BALANCE_THRESHOLD = 0.1f;    // Schwellenwert für "perfekte Energiebilanz" - Grid-Power unter diesem Wert zeigt Balance-Symbol
 
   // Power data ages (milliseconds)
-  constexpr unsigned long MAX_POWER_DATA_AGE_MS = 300000; // 5 minutes
+  constexpr unsigned long MAX_POWER_DATA_AGE_MS = 300000; // Maximales Alter der Leistungsdaten (5 Min) bevor sie als veraltet gelten
 
-  // Energy flow visualization
-  constexpr int BIDIRECTIONAL_BAR_HEIGHT = 4;
-  constexpr int POWER_BAR_MIN_WIDTH = 10;
-  constexpr int POWER_DISPLAY_PRECISION = 1;  // Decimal places for power display
+  // Energy flow visualization (UI-Parameter)
+  constexpr int BIDIRECTIONAL_BAR_HEIGHT = 4;       // Höhe der bidirektionalen Energiefluss-Balken in Pixeln
+  constexpr int POWER_BAR_MIN_WIDTH = 10;           // Minimale Breite für Leistungsbalken-Segmente für bessere Sichtbarkeit
+  constexpr int POWER_DISPLAY_PRECISION = 1;        // Dezimalstellen für Leistungsanzeigen (1 = eine Nachkommastelle)
 }
 
 namespace System {
@@ -206,11 +206,11 @@ namespace NetworkConfig {
     const char* const historyResponse = "display/history_response";
     const char* const energyMarketPriceDayAhead = "home/PV/EnergyPriceDayAhead";
     
-    // Power Management Topics
-    const char* const pvPower = "home/PV/PVCurrentPower";          // PV-Erzeugung
-    const char* const gridPower = "home/PV/GridCurrentPower";     // Netzbezug/Einspeisung
-    const char* const loadPower = "home/PV/LoadCurrentPower";     // Hausverbrauch
-    const char* const storagePower = "home/PV/StorageCurrentPower"; // Speicher Lade/Entladung ohne Vorzeichen
+    // Power Management Topics (alle Werte in kW als Float)
+    const char* const pvPower = "home/PV/PVCurrentPower";          // Aktuelle PV-Erzeugungsleistung (immer positiv)
+    const char* const gridPower = "home/PV/GridCurrentPower";     // Aktuelle Netzleistung (Betrag - Richtung wird berechnet)
+    const char* const loadPower = "home/PV/LoadCurrentPower";     // Aktueller Hausverbrauch (immer positiv)
+    const char* const storagePower = "home/PV/StorageCurrentPower"; // Aktuelle Speicherleistung (Betrag - Richtung wird berechnet)
   };
   
   extern const MqttTopics topics;
