@@ -295,7 +295,7 @@ void drawPriceAnalytics(int offsetX) {
   // Date and data quality
   tft.setTextColor(Colors::TEXT_LABEL);
   char headerText[64];
-  snprintf(headerText, sizeof(headerText), "%s (Qualität: %d%%)",
+  snprintf(headerText, sizeof(headerText), "%s (Qualitaet: %d%%)",
            dayAheadPrices.date, dayAheadPrices.dataQuality);
   tft.drawString(headerText, INDENT, yPos, 1);
   yPos += LINE_HEIGHT;
@@ -303,7 +303,7 @@ void drawPriceAnalytics(int offsetX) {
   // Price statistics
   tft.setTextColor(Colors::TEXT_MAIN);
   char statsText[80];
-  snprintf(statsText, sizeof(statsText), "Ø %.1f¢  Min: %.1f¢@%02d:00  Max: %.1f¢@%02d:00",
+  snprintf(statsText, sizeof(statsText), "Ø %.1fct  Min: %.1fct@%02d:00  Max: %.1fct@%02d:00",
            dayAheadPrices.dailyAverage, dayAheadPrices.minPrice, dayAheadPrices.cheapestHour,
            dayAheadPrices.maxPrice, dayAheadPrices.expensiveHour);
   tft.drawString(statsText, INDENT, yPos, 1);
@@ -325,7 +325,7 @@ void drawPriceAnalytics(int offsetX) {
 
   // Optimization section header
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("🎯 Optimale Zeiten für Hochverbrauch:", INDENT, yPos, 1);
+  tft.drawString("Optimale Zeiten für Hochverbrauch:", INDENT, yPos, 1);
   yPos += LINE_HEIGHT + 3;
 
   // Show optimal windows
@@ -335,7 +335,7 @@ void drawPriceAnalytics(int offsetX) {
     if (dayAheadPrices.optimalWindows[i].isAvailable) {
       windowCount++;
       char windowText[70];
-      snprintf(windowText, sizeof(windowText), "%d. %02d:00-%02d:00  Ø %.1f¢  (Sparen: %.1f¢)",
+      snprintf(windowText, sizeof(windowText), "%d. %02d:00-%02d:00  Ø %.1fct  (Sparen: %.1fct)",
                windowCount,
                dayAheadPrices.optimalWindows[i].startHour,
                dayAheadPrices.optimalWindows[i].endHour,
@@ -358,7 +358,7 @@ void drawPriceAnalytics(int offsetX) {
   if (dayAheadPrices.potentialSavings > 0.5f) {
     tft.setTextColor(Colors::STATUS_GREEN);
     char savingsText[60];
-    snprintf(savingsText, sizeof(savingsText), "💰 Max. Einsparung: %.1f¢/kWh",
+    snprintf(savingsText, sizeof(savingsText), "Max. Einsparung: %.1fct/kWh",
              dayAheadPrices.potentialSavings);
     tft.drawString(savingsText, INDENT, yPos, 1);
     yPos += LINE_HEIGHT;
@@ -366,7 +366,8 @@ void drawPriceAnalytics(int offsetX) {
 
   // Simple price chart/visualization
   yPos += 10;
-  drawSimplePriceChart(INDENT, yPos, 280, 40);
+  int chartWidth = min(280, 320 - INDENT - 10); // Ensure chart fits on screen
+  drawSimplePriceChart(INDENT, yPos, chartWidth, 40);
   yPos += 50;
 
   // Update timestamp
@@ -467,24 +468,7 @@ void drawOekostromDetailScreen() {
     tft.setTextColor(Colors::TEXT_MAIN);
     tft.drawString(sensors[0].formattedValue, 10 + offsetX, 65, 4);
 
-    // Status-Indikator basierend auf Ökostrom-Anteil
-    uint16_t statusColor = Colors::STATUS_RED;
-    const char* statusText = "Niedrig";
-
-    if (sensors[0].value > 80.0f) {
-      statusColor = Colors::STATUS_GREEN;
-      statusText = "Sehr gut";
-    } else if (sensors[0].value > 60.0f) {
-      statusColor = Colors::STATUS_YELLOW;
-      statusText = "Gut";
-    } else if (sensors[0].value > 40.0f) {
-      statusColor = Colors::STATUS_ORANGE;
-      statusText = "Mäßig";
-    }
-
-    drawIndicator(10 + offsetX, 110, statusColor, true);
-    tft.setTextColor(statusColor);
-    tft.drawString(statusText, 25 + offsetX, 105, 2);
+    // Status-Indikator entfernt - mehr Platz für Diagramm
 
   } else {
     tft.setTextColor(Colors::TEXT_TIMEOUT);
@@ -495,10 +479,10 @@ void drawOekostromDetailScreen() {
   // Verbessertes Day-Ahead Preis-Diagramm (24h-Verlauf)
   if (dayAheadPrices.hasData) {
     tft.setTextColor(Colors::TEXT_LABEL);
-    tft.drawString("Day-Ahead Preise (24h):", 10 + offsetX, 140, 1);
+    tft.drawString("Day-Ahead Preise (24h):", 10 + offsetX, 110, 1);
 
     const int chartX = 10 + offsetX;
-    const int chartY = 160;
+    const int chartY = 130;
     const int chartWidth = 280;
     const int chartHeight = 50;
 
@@ -576,7 +560,7 @@ void drawOekostromDetailScreen() {
       snprintf(priceInfo, sizeof(priceInfo), "Min: %.1fct  Ø: %.1fct  Max: %.1fct",
                minPrice, avgPrice, maxPrice);
       tft.setTextColor(Colors::TEXT_LABEL);
-      tft.drawString(priceInfo, 10 + offsetX, 218, 1);
+      tft.drawString(priceInfo, 10 + offsetX, 188, 1);
 
       // Aktuelle Stunde hervorheben (wenn Zeitdaten verfügbar)
       if (systemStatus.timeValid) {
@@ -592,7 +576,7 @@ void drawOekostromDetailScreen() {
             snprintf(currentPriceStr, sizeof(currentPriceStr), "Jetzt: %.1fct",
                      dayAheadPrices.prices[currentHour].price);
             tft.setTextColor(Colors::TEXT_MAIN);
-            tft.drawString(currentPriceStr, 10 + offsetX, 230, 1);
+            tft.drawString(currentPriceStr, 10 + offsetX, 200, 1);
           }
         }
       }
@@ -603,12 +587,12 @@ void drawOekostromDetailScreen() {
     }
   } else {
     tft.setTextColor(Colors::TEXT_TIMEOUT);
-    tft.drawString("Keine Day-Ahead Daten verfügbar", 10 + offsetX, 160, 1);
+    tft.drawString("Keine Day-Ahead Daten verfuegbar", 10 + offsetX, 130, 1);
   }
 
   // System-Info (Position angepasst für neues Chart)
   // MQTT Topic Info entfernt um Platz zu schaffen
-  tft.drawString("home/PV/Share_renewable", 85 + offsetX, 225, 1);
+  tft.drawString("home/PV/Share_renewable", 85 + offsetX, 215, 1);
 
   Serial.println("Ökostrom-Detail-Screen vollständig gezeichnet");
 }
@@ -616,7 +600,7 @@ void drawOekostromDetailScreen() {
 void drawPriceChart(int offsetX) {
   // Einfaches Balkendiagramm für 24h Preise
   const int chartX = 10 + offsetX;
-  const int chartY = 110;
+  const int chartY = 85;
   const int chartWidth = 300;
   const int chartHeight = 80;
   const int barWidth = chartWidth / Layout::CHART_HOURS;
@@ -644,13 +628,7 @@ void drawPriceChart(int offsetX) {
     return;
   }
 
-  // Preisbereich anzeigen
-  tft.setTextColor(Colors::TEXT_LABEL);
-  char maxPriceText[32], minPriceText[32];
-  snprintf(maxPriceText, sizeof(maxPriceText), "Max: %.2fct", maxPrice);
-  snprintf(minPriceText, sizeof(minPriceText), "Min: %.2fct", minPrice);
-  tft.drawString(maxPriceText, chartX, chartY - 15, 1);
-  tft.drawString(minPriceText, chartX + 100, chartY - 15, 1);
+  // Min/Max Preisanzeige entfernt für bessere Sichtbarkeit
 
   // Zeichne Balken für jede Stunde
   for (int i = 0; i < Layout::CHART_HOURS; i++) {
@@ -913,10 +891,17 @@ void drawSensorBox(int index) {
       }
       // Index 3 (Ladestand) bleibt bei sensor.value (bereits in %)
 
+      uint16_t barColor = 0; // Default: use percentage-based colors
+      if (index == 3) { // Ladestand (Akku)
+        barColor = Colors::STATUS_BLUE;
+      } else if (index == 5) { // PV-Erzeugung
+        barColor = Colors::STATUS_GREEN;
+      }
+
       drawProgressBar(boxX + Layout::PADDING_SMALL,
                      boxY + sensor.layout.h - 8,
                      sensor.layout.w - 2 * Layout::PADDING_SMALL,
-                     progressValue, false);
+                     progressValue, false, barColor);
     }
   } else if (index == 4) {
     // Debug für PV-Sensor ohne Progress Bar
@@ -939,15 +924,7 @@ void drawSensorBox(int index) {
     int indicatorX = boxX + sensor.layout.w - 15;
     int indicatorY = boxY + 20;
     
-    if (index == 0) { // Ökostrom-Ampel
-      uint16_t color;
-      if (sensor.value >= 75.0f) color = Colors::STATUS_GREEN;
-      else if (sensor.value >= 50.0f) color = Colors::STATUS_YELLOW;
-      else if (sensor.value >= 25.0f) color = Colors::STATUS_ORANGE;
-      else color = Colors::STATUS_RED;
-      drawIndicator(indicatorX, indicatorY, color, true);
-      
-    } else if (index == 5) { // Wassertemperatur-Ampel
+    if (index == 5) { // Wassertemperatur-Ampel
       uint16_t color;
       if (sensor.value >= 50.0f) color = Colors::STATUS_GREEN;
       else if (sensor.value >= 48.0f) color = Colors::STATUS_YELLOW;
@@ -1047,10 +1024,10 @@ void drawNetworkStatus() {
     int bars = getSignalBars(systemStatus.wifiRSSI);
     snprintf(wifiText, sizeof(wifiText), "WiFi:%ddBm ", systemStatus.wifiRSSI);
 
-    // Add signal bars to string
+    // Add signal bars to string (█ = voll, ░ = leer)
     size_t len = strlen(wifiText);
     for (int i = 0; i < 4 && len < sizeof(wifiText) - 2; i++) {
-      wifiText[len++] = (i < bars) ? '*' : 'o';  // Use ASCII characters instead of Unicode
+      wifiText[len++] = (i < bars) ? '|' : '.';  // Clearer visual representation
     }
     wifiText[len] = '\0';
     tft.drawString(wifiText, netX, netY, 1);
@@ -1180,18 +1157,23 @@ void drawEcoVisualization(int x, int y) {
 //                              BASIS-UI-ELEMENTE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-void drawProgressBar(int x, int y, int width, float percentage, bool showText) {
+void drawProgressBar(int x, int y, int width, float percentage, bool showText, uint16_t customColor) {
   tft.drawRect(x, y, width, Layout::PROGRESS_BAR_HEIGHT, Colors::BORDER_PROGRESS);
   tft.fillRect(x + 1, y + 1, width - 2, Layout::PROGRESS_BAR_HEIGHT - 2, Colors::BG_MAIN);
-  
+
   int progressWidth = constrain((width - 2) * (percentage / 100.0f), 0, width - 2);
   uint16_t progressColor;
-  
-  // Synchronisiert mit Ökostrom-Ampel (schlecht=rot, gut=grün)
-  if (percentage >= 75) progressColor = Colors::STATUS_GREEN;      // >= 75%: Grün (gut)
-  else if (percentage >= 50) progressColor = Colors::STATUS_YELLOW; // 50-74%: Gelb
-  else if (percentage >= 25) progressColor = Colors::STATUS_ORANGE; // 25-49%: Orange
-  else progressColor = Colors::STATUS_RED;                         // < 25%: Rot (schlecht)
+
+  if (customColor != 0) {
+    // Use custom color if provided
+    progressColor = customColor;
+  } else {
+    // Default color scheme based on percentage (for generic progress bars)
+    if (percentage >= 75) progressColor = Colors::STATUS_GREEN;      // >= 75%: Grün (gut)
+    else if (percentage >= 50) progressColor = Colors::STATUS_YELLOW; // 50-74%: Gelb
+    else if (percentage >= 25) progressColor = Colors::STATUS_ORANGE; // 25-49%: Orange
+    else progressColor = Colors::STATUS_RED;                         // < 25%: Rot (schlecht)
+  }
   
   if (progressWidth > 0) {
     tft.fillRect(x + 1, y + 1, progressWidth, Layout::PROGRESS_BAR_HEIGHT - 2, progressColor);
@@ -1440,17 +1422,17 @@ void drawConsumptionBar(int x, int y, int width, float maxConsumption) {
     currentX += pvWidth;
   }
   
-  // Batterie-Segment (cyan für bessere Unterscheidung)
+  // Batterie-Segment (blau)
   if (batteryWidth > 0 && currentX < x + width) {
     int segmentWidth = min(batteryWidth, (x + width) - currentX);
-    tft.fillRect(currentX, y, segmentWidth, barHeight, Colors::STATUS_CYAN);
+    tft.fillRect(currentX, y, segmentWidth, barHeight, Colors::STATUS_BLUE);
     currentX += batteryWidth;
   }
   
-  // Netz-Segment (orange statt rot für bessere Sichtbarkeit)
+  // Netz-Segment (rot)
   if (gridWidth > 0 && currentX < x + width) {
     int segmentWidth = min(gridWidth, (x + width) - currentX);
-    tft.fillRect(currentX, y, segmentWidth, barHeight, Colors::STATUS_ORANGE);
+    tft.fillRect(currentX, y, segmentWidth, barHeight, Colors::STATUS_RED);
   }
   
   // Rahmen um den gesamten verfügbaren Bereich
@@ -1490,11 +1472,20 @@ void drawBidirectionalBar(int x, int y, int width, float pvPower, float gridPowe
     int gridBarWidth = (int)((width / 2) * gridRatio);
     
     if (!isGridFeedIn) {
-      // Netzbezug nach links (rot)
-      tft.fillRect(centerX - gridBarWidth, y, gridBarWidth, barHeight, Colors::STATUS_RED);
-      tft.setTextColor(Colors::STATUS_RED);
-      tft.drawString("Bezug", x + 2, y - 8, 1);
-      
+      // Bezug - Unterscheidung zwischen Netz (rot) und Speicher (blau)
+      uint16_t bezugColor = Colors::STATUS_RED;  // Default: Netzbezug
+      const char* bezugText = "Netz";
+
+      // Prüfen ob Energie aus Speicher kommt (wenn Speicherleistung negativ ist)
+      if (storagePower > 0.1f && !isStorageCharging) {
+        bezugColor = Colors::STATUS_BLUE;  // Speicherbezug
+        bezugText = "Speicher";
+      }
+
+      tft.fillRect(centerX - gridBarWidth, y, gridBarWidth, barHeight, bezugColor);
+      tft.setTextColor(bezugColor);
+      tft.drawString(bezugText, x + 2, y - 8, 1);
+
     } else {
       // Netzeinspeisung nach rechts (grün)
       tft.fillRect(centerX + 1, y, gridBarWidth, barHeight, Colors::STATUS_GREEN);
@@ -1744,7 +1735,7 @@ void drawWallboxConsumptionScreen() {
     tft.setTextColor(Colors::TEXT_MAIN);
     tft.drawString(sensors[5].formattedValue, 10 + offsetX, 65, 4);
 
-    // Status-Visualisierung
+    // Status neben der Leistung anzeigen
     uint16_t statusColor = Colors::STATUS_GREEN;
     const char* statusText = "Standby";
 
@@ -1756,38 +1747,25 @@ void drawWallboxConsumptionScreen() {
       statusText = "Bereit";
     }
 
-    // Status-Kreis und Text
-    drawIndicator(10 + offsetX, 120, statusColor, true);
+    // Status-Text rechts neben der Leistung
     tft.setTextColor(statusColor);
-    tft.drawString(statusText, 25 + offsetX, 115, 2);
+    tft.drawString(statusText, 200 + offsetX, 75, 2);
 
   } else {
     tft.setTextColor(Colors::TEXT_TIMEOUT);
     tft.drawString("--- W", 10 + offsetX, 65, 4);
-    tft.drawString("Keine Verbindung", 10 + offsetX, 115, 2);
+    tft.drawString("Keine Verbindung", 200 + offsetX, 75, 2);
   }
 
-  // Auto-Ladestand
+  // Auto-Ladestand (nicht verfügbar)
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("Ladestand Auto:", 10 + offsetX, 150, 1);
-
-  if (!sensors[3].isTimedOut) {
-    tft.setTextColor(Colors::TEXT_MAIN);
-    tft.drawString(sensors[3].formattedValue, 10 + offsetX, 165, 2);
-
-    // Progress Bar für Auto-Ladestand
-    int progressX = 10 + offsetX;
-    int progressY = 185;
-    int progressWidth = 250;
-    drawProgressBar(progressX, progressY, progressWidth, sensors[3].value, true);
-  } else {
-    tft.setTextColor(Colors::TEXT_TIMEOUT);
-    tft.drawString("--- %", 10 + offsetX, 165, 2);
-  }
+  tft.drawString("Ladestand Auto:", 10 + offsetX, 110, 1);
+  tft.setTextColor(Colors::TEXT_TIMEOUT);
+  tft.drawString("nicht verfuegbar", 10 + offsetX, 125, 1);
 
   // Hausspeicher-Ladestand (simuliert basierend auf Lade-/Entlade-Status)
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("Hausspeicher:", 10 + offsetX, 200, 1);
+  tft.drawString("Hausspeicher:", 10 + offsetX, 150, 1);
 
   // Simulierter Speicher-Ladestand basierend auf aktueller Speicher-Aktivität
   float storageLevel = 65.0f; // Basis-Wert 65%
@@ -1820,17 +1798,17 @@ void drawWallboxConsumptionScreen() {
   tft.setTextColor(storageStatusColor);
   char storageText[48];
   snprintf(storageText, sizeof(storageText), "%.0f%% (%s)", storageLevel, storageStatusText);
-  tft.drawString(storageText, 10 + offsetX, 215, 1);
+  tft.drawString(storageText, 10 + offsetX, 165, 1);
 
   // Progress Bar für Hausspeicher
   int storageProgressX = 10 + offsetX;
-  int storageProgressY = 230;
+  int storageProgressY = 180;
   int storageProgressWidth = 250;
-  drawProgressBar(storageProgressX, storageProgressY, storageProgressWidth, storageLevel, false);
+  drawProgressBar(storageProgressX, storageProgressY, storageProgressWidth, storageLevel, false, Colors::STATUS_BLUE);
 
   // System-Info unter den Progress-Bars (kürzer halten)
   tft.setTextColor(Colors::TEXT_LABEL);
-  tft.drawString("MQTT: home/PV/WallboxPower", 10 + offsetX, 245, 1);
+  tft.drawString("MQTT: home/PV/WallboxPower", 10 + offsetX, 200, 1);
 
   Serial.println("Wallbox-Verbrauch-Screen vollständig gezeichnet");
 }
@@ -1908,7 +1886,7 @@ void drawLadestandScreen() {
   int storageProgressX = 10 + offsetX;
   int storageProgressY = 150;
   int storageProgressWidth = 280;
-  drawProgressBar(storageProgressX, storageProgressY, storageProgressWidth, storageLevel, true);
+  drawProgressBar(storageProgressX, storageProgressY, storageProgressWidth, storageLevel, true, Colors::STATUS_BLUE);
 
   // PKW-Ladestand-Platzhalter (für zukünftige Implementierung)
   tft.setTextColor(Colors::TEXT_LABEL);
@@ -1922,10 +1900,10 @@ void drawLadestandScreen() {
     int carProgressX = 10 + offsetX;
     int carProgressY = 220;
     int carProgressWidth = 280;
-    drawProgressBar(carProgressX, carProgressY, carProgressWidth, sensors[3].value, true);
+    drawProgressBar(carProgressX, carProgressY, carProgressWidth, sensors[3].value, true, Colors::STATUS_BLUE);
   } else {
     tft.setTextColor(Colors::TEXT_TIMEOUT);
-    tft.drawString("Nicht verfügbar", 10 + offsetX, 205, 2);
+    tft.drawString("Nicht verfuegbar", 10 + offsetX, 205, 2);
   }
 
   Serial.println("Ladestand-Screen vollständig gezeichnet");

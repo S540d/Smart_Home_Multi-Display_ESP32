@@ -263,6 +263,8 @@ struct SensorData {
       snprintf(formattedValue, sizeof(formattedValue), "%.1fkW", value / 1000.0f);
     } else if (strcmp(unit, "€") == 0) {
       snprintf(formattedValue, sizeof(formattedValue), "%.2f%s", value, unit);
+    } else if (strcmp(unit, "ct") == 0) {
+      snprintf(formattedValue, sizeof(formattedValue), "%.1f%s", value, unit);
     } else {
       snprintf(formattedValue, sizeof(formattedValue), "%.1f%s", value, unit);
     }

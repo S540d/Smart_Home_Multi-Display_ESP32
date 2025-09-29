@@ -63,7 +63,7 @@ void drawNetworkStatus();  // Enthält jetzt auch OTA-Status
 void drawTimeDisplay();
 
 // Basis-UI-Elemente
-void drawProgressBar(int x, int y, int width, float percentage, bool showText = false);
+void drawProgressBar(int x, int y, int width, float percentage, bool showText = false, uint16_t customColor = 0);
 void drawConsumptionBar(int x, int y, int width, float maxConsumption);
 void drawBidirectionalBar(int x, int y, int width, float pvPower, float gridPower, float maxPower);
 void drawPVDistributionBar(int x, int y, int width, float pvPower);

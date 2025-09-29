@@ -237,21 +237,21 @@ void TouchManager::updateSensorTouchAreas() {
   }
 
   // Touch-Bereiche basierend auf tatsächlichen Sensor-Positionen aus sensors.cpp
-  // Mit reduzierten Höhen um Überlappungen zu vermeiden (40px → 35px)
+  // Touch-Bereiche passend zu den tatsächlichen Sensor-Boxen definiert
 
   // Reihe 1: Markt/Finanzen-Gruppe
-  touchAreas[0] = TouchArea(10, 35, Layout::SENSOR_BOX_WIDTH, 35, 0);   // Ökostrom
-  touchAreas[1] = TouchArea(115, 35, Layout::SENSOR_BOX_WIDTH, 35, 1);  // Preis
-  touchAreas[2] = TouchArea(220, 35, Layout::SENSOR_BOX_WIDTH, 35, 2);  // Aktie
+  touchAreas[0] = TouchArea(10, 35, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 0);   // Ökostrom
+  touchAreas[1] = TouchArea(115, 35, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 1);  // Preis
+  touchAreas[2] = TouchArea(220, 35, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 2);  // Aktie
 
   // Reihe 2: Power/Charge-Gruppe
-  touchAreas[3] = TouchArea(10, 85, Layout::SENSOR_BOX_WIDTH, 35, 3);   // Ladestand
-  touchAreas[4] = TouchArea(115, 85, Layout::SENSOR_BOX_WIDTH, 35, 4);  // Verbrauch
-  touchAreas[5] = TouchArea(220, 85, Layout::SENSOR_BOX_WIDTH, 35, 5);  // PV-Erzeugung
+  touchAreas[3] = TouchArea(10, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 3);   // Ladestand
+  touchAreas[4] = TouchArea(115, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 4);  // Verbrauch
+  touchAreas[5] = TouchArea(220, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 5);  // PV-Erzeugung
 
   // Reihe 3: Umwelt-Gruppe
-  touchAreas[6] = TouchArea(10, 135, Layout::SENSOR_BOX_WIDTH, 35, 6);  // Außentemperatur
-  touchAreas[7] = TouchArea(115, 135, Layout::SENSOR_BOX_WIDTH, 35, 7); // Wassertemperatur
+  touchAreas[6] = TouchArea(10, 135, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 6);  // Außentemperatur
+  touchAreas[7] = TouchArea(115, 135, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 7); // Wassertemperatur
 
 }
 
@@ -289,27 +289,20 @@ TouchEventType TouchManager::detectGesture(const TouchPoint& start, const TouchP
 
 // FINALE KALIBRIERUNG mit DEINEN EXAKTEN Messwerten
 void applyCalibratedTouchExact(int rawX, int rawY, int& calX, int& calY) {
-  // DEINE EXAKTEN MESSUNGEN:
-  // Oben links: Raw(240,9) → Display(0,0)
-  // Unten links: Raw(0,9) → Display(0,240)
-  // Mitte oben: Raw(230,150) → Display(160,0)
-  // Mitte unten: Raw(0,150) → Display(160,240)
+  // Verbesserte Kalibrierung für gesamtes Display (320x240)
+  // Basierend auf 90° Rotation: Raw X→Display Y, Raw Y→Display X
 
-  // KORREKTE ACHSEN-ZUORDNUNG:
-  // Raw X (240→0) → Display Y (0→240)
-  // Raw Y (9→150) → Display X (0→160)
+  // Touch-Bereiche erweitert für vollständige Abdeckung
+  // Raw X: ~240→0 entspricht Display Y: 0→240
+  // Raw Y: ~9→300 entspricht Display X: 0→320
 
-  // KORREKTUR FÜR 90° ROTATION:
-  // Touch rechts → Display unten bedeutet: 90° im Uhrzeigersinn gedreht
+  // Lineare Transformation mit erweiterten Bereichen
+  float x = constrain(map(rawY, 5, 310, 0, 320), 0, 319);    // Raw Y → Display X (erweitert)
+  float y = constrain(map(rawX, 250, -10, 0, 240), 0, 239);  // Raw X → Display Y (erweitert)
 
-  // Basiskalibrierung mit deinen Messwerten
-  float x = map(rawY, 9, 150, 0, 160);      // Raw Y → Display X
-  float y = map(rawX, 240, 0, 0, 240);      // Raw X → Display Y
-
-  // Extrapolation für rechte Seite
-  if (rawY > 150) {
-    x = map(rawY, 150, 300, 160, 320);
-  }
+  // Kleine Korrektur für bessere Zentrierung
+  x += 2;  // Leichter Offset nach rechts
+  y -= 1;  // Leichter Offset nach oben
 
   // EINFACH X UND Y VERTAUSCHEN:
   int rotatedX = (int)x;
