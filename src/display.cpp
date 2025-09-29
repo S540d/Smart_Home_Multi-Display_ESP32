@@ -877,16 +877,16 @@ void drawSensorBox(int index) {
       float progressValue = sensor.value;
 
       // Skalierung je nach Sensor-Index
-      if (index == 4) { // PV-Leistung: 0-10kW = 0-100% (Werte kommen als kW über MQTT)
-        progressValue = (sensor.value / 10.0f) * 100.0f;
+      if (index == 5) { // PV-Erzeugung: Werte in Watt, skaliere zu 0-10kW = 0-100%
+        progressValue = (sensor.value / 10000.0f) * 100.0f;  // Watt zu kW, dann auf 100% skalieren
         progressValue = constrain(progressValue, 0.0f, 100.0f);
 
-        // Minimum-Sichtbarkeit: Wenn Wert > 0kW aber < 1%, zeige mindestens 1%
+        // Minimum-Sichtbarkeit: Wenn Wert > 0W aber < 1%, zeige mindestens 1%
         if (sensor.value > 0 && progressValue < 1.0f) {
           progressValue = 1.0f;
         }
 
-        Serial.printf("PV ProgressBar: %.1fkW -> %.1f%% (Skala: 0-10kW)\n",
+        Serial.printf("PV ProgressBar: %.0fW -> %.1f%% (Skala: 0-10kW)\n",
                      sensor.value, progressValue);
       }
       // Index 3 (Ladestand) bleibt bei sensor.value (bereits in %)

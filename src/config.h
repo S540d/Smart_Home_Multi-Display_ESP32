@@ -29,21 +29,21 @@ namespace Colors {
   constexpr uint16_t TEXT_CALENDAR = 0xFFE0;     // #FFFF00 Gelb für Kalender
   
   constexpr uint16_t STATUS_GREEN = 0x07E0;      // #00FF00 Echtes Grün (bleibt)
-  constexpr uint16_t STATUS_RED = 0x001F;        // #FF0000 Echtes Rot (R/B getauscht)
-  constexpr uint16_t STATUS_YELLOW = 0xFFE0;     // #FFFF00 Echtes Gelb (bleibt)  
-  constexpr uint16_t STATUS_ORANGE = 0x051F;     // #FF6600 Orange (R/B getauscht)
-  constexpr uint16_t STATUS_CYAN = 0xF800;       // #00FFFF Cyan (R/B getauscht)
-  constexpr uint16_t STATUS_BLUE = 0x8000;       // #000080 Dunkelblau (R/B getauscht)
+  constexpr uint16_t STATUS_RED = 0xF800;        // Echtes Rot (war 0x001F, jetzt richtig)
+  constexpr uint16_t STATUS_YELLOW = 0xFFE0;     // #FFFF00 Echtes Gelb (bleibt)
+  constexpr uint16_t STATUS_ORANGE = 0xFD20;     // Orange (heller als vorher)
+  constexpr uint16_t STATUS_CYAN = 0x07FF;       // Cyan (korrigiert)
+  constexpr uint16_t STATUS_BLUE = 0x001F;       // Helles Blau (war 0x8000, jetzt gut sichtbar)
   
   constexpr uint16_t TREND_UP = 0x07E0;          // Grün für steigende Werte (bleibt)
   constexpr uint16_t TREND_UP_STRONG = 0x05E0;   // Hellgrün für stark steigende Werte
-  constexpr uint16_t TREND_DOWN = 0x001F;        // Rot für fallende Werte (R/B getauscht)
-  constexpr uint16_t TREND_DOWN_STRONG = 0x003F; // Hellrot für stark fallende Werte
+  constexpr uint16_t TREND_DOWN = 0xF800;        // Rot für fallende Werte (korrigiert)
+  constexpr uint16_t TREND_DOWN_STRONG = 0xF000; // Hellrot für stark fallende Werte (korrigiert)
   constexpr uint16_t TREND_NEUTRAL = 0xBDF7;     // Hellgrau für unveränderte Werte (wie Labels)
   
-  constexpr uint16_t SYSTEM_OK = 0xF800;         // Cyan für OK-Status (R/B getauscht)
-  constexpr uint16_t SYSTEM_WARN = 0x051F;       // Orange für Warnungen (R/B getauscht)
-  constexpr uint16_t SYSTEM_ERROR = 0x001F;      // Rot für Fehler (R/B getauscht)
+  constexpr uint16_t SYSTEM_OK = 0x07FF;         // Cyan für OK-Status (korrigiert)
+  constexpr uint16_t SYSTEM_WARN = 0xFD20;       // Orange für Warnungen (korrigiert)
+  constexpr uint16_t SYSTEM_ERROR = 0xF800;      // Rot für Fehler (korrigiert)
 
   // Touch-Visualisierung
   constexpr uint16_t TOUCH_MARKER = 0xF81F;      // Magenta für Touch-Markierung
