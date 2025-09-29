@@ -868,55 +868,26 @@ void drawSensorBox(int index) {
   
   // Progress Bar für verschiedene Sensoren
   if (sensor.layout.hasProgressBar && !sensor.isTimedOut) {
-    if (index == 5) { // PV-Erzeugung: Spezielle segmentierte Progress Bar
+    if (index == 4) { // Verbrauch: Segmentierte Bar (woher kommt der Strom)
+      drawConsumptionBar(boxX + Layout::PADDING_SMALL,
+                        boxY + sensor.layout.h - 8,
+                        sensor.layout.w - 2 * Layout::PADDING_SMALL,
+                        15.0f);  // Max 15kW
+    } else if (index == 5) { // PV-Erzeugung: Segmentierte Bar (wohin fließt der Strom)
       drawPVDistributionBar(boxX + Layout::PADDING_SMALL,
                            boxY + sensor.layout.h - 8,
                            sensor.layout.w - 2 * Layout::PADDING_SMALL,
                            sensor.value);
     } else {
+      // Einfache Progress Bar (z.B. Ladestand Speicher)
       float progressValue = sensor.value;
-
-      // Skalierung je nach Sensor-Index
-      if (index == 5) { // PV-Erzeugung: Werte in Watt, skaliere zu 0-10kW = 0-100%
-        progressValue = (sensor.value / 10000.0f) * 100.0f;  // Watt zu kW, dann auf 100% skalieren
-        progressValue = constrain(progressValue, 0.0f, 100.0f);
-
-        // Minimum-Sichtbarkeit: Wenn Wert > 0W aber < 1%, zeige mindestens 1%
-        if (sensor.value > 0 && progressValue < 1.0f) {
-          progressValue = 1.0f;
-        }
-
-        Serial.printf("PV ProgressBar: %.0fW -> %.1f%% (Skala: 0-10kW)\n",
-                     sensor.value, progressValue);
-      }
-      // Index 3 (Ladestand) bleibt bei sensor.value (bereits in %)
-
-      uint16_t barColor = 0; // Default: use percentage-based colors
-      if (index == 3) { // Ladestand (Akku)
-        barColor = Colors::STATUS_BLUE;
-      } else if (index == 5) { // PV-Erzeugung
-        barColor = Colors::STATUS_GREEN;
-      }
+      uint16_t barColor = getSensorProgressColor(index);
 
       drawProgressBar(boxX + Layout::PADDING_SMALL,
                      boxY + sensor.layout.h - 8,
                      sensor.layout.w - 2 * Layout::PADDING_SMALL,
                      progressValue, false, barColor);
     }
-  } else if (index == 4) {
-    // Debug für PV-Sensor ohne Progress Bar
-    Serial.printf("WARNUNG - PV ProgressBar NICHT gezeichnet: hasProgressBar=%s, isTimedOut=%s\n",
-                 sensor.layout.hasProgressBar ? "JA" : "NEIN",
-                 sensor.isTimedOut ? "JA" : "NEIN");
-  }
-  
-  // Consumption Bar für PV/Netz
-  if (sensor.layout.hasBidirectionalBar && !sensor.isTimedOut) {
-    // Consumption Bar mit Energiequellen-Segmenten (gleiche Größe wie Progress Bar)
-    drawConsumptionBar(boxX + Layout::PADDING_SMALL, 
-                      boxY + sensor.layout.h - 8, // Gleiche Position wie normale Progress Bars
-                      sensor.layout.w - 2 * Layout::PADDING_SMALL,
-                      15.0f);  // Max 15kW
   }
   
   // Indikatoren (Ampeln)
@@ -1151,6 +1122,21 @@ void drawEcoVisualization(int x, int y) {
   // Debug-Ausgabe
   Serial.printf("Eco-Score: %.0f%% (PV:%.0f%% Bat:%.0f%% Grid:%.0f%%)\n",
                 ecoScore * 100, pvPercent, batteryPercent, gridPercent);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//                              ZENTRALE FARBVERWALTUNG
+// ═══════════════════════════════════════════════════════════════════════════════
+
+uint16_t getSensorProgressColor(int sensorIndex) {
+  switch (sensorIndex) {
+    case 3:  // Ladestand (Akku/Speicher)
+      return Colors::STATUS_BLUE;
+    case 5:  // PV-Erzeugung
+      return Colors::STATUS_GREEN;
+    default:
+      return 0; // Use percentage-based default colors
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

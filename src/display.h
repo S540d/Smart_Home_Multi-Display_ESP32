@@ -62,6 +62,9 @@ void drawSystemInfo();
 void drawNetworkStatus();  // Enthält jetzt auch OTA-Status
 void drawTimeDisplay();
 
+// Zentrale Farbverwaltung
+uint16_t getSensorProgressColor(int sensorIndex);
+
 // Basis-UI-Elemente
 void drawProgressBar(int x, int y, int width, float percentage, bool showText = false, uint16_t customColor = 0);
 void drawConsumptionBar(int x, int y, int width, float maxConsumption);

@@ -119,7 +119,7 @@ void initializeSensorLayouts() {
     {"Aktie",     "EUR", 220, 35, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, false, false},  // [2] Aktie nach oben, EUR statt E
     // Reihe 2: Power/Charge-Gruppe  
     {"Ladestand", "%",  10,  85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, true,  false, false},  // [3]
-    {"Verbrauch", "kW", 115, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, false, true}, // [4] Consumption Bar
+    {"Verbrauch", "kW", 115, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, true, false, false}, // [4] Segmentierte Progress Bar
     {"PV-Erzeugung", "W",  220, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, true, false, false},  // [5] PV-Erzeugung mit Progress Bar
     // Reihe 3: Umwelt-Gruppe (ohne untere rechte Ecke)
     {"Aussen",    "C",  10,  135, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, false, false, false}, // [6]
