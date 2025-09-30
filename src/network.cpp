@@ -379,14 +379,8 @@ void updateSensorValue(int index, float newValue) {
     }
   }
   
-  // Spezielle Einheitenkonvertierung für Preise
-  if (index == 1) { // Preis-Sensor
-    // Prüfe ob Wert in Euro vorliegt (< 1.0) und konvertiere zu Cent
-    if (newValue < 1.0f && newValue > 0.0f) {
-      newValue = newValue * 100.0f; // Euro zu Cent konvertieren
-      Serial.printf("💱 Preis-Konvertierung: %.3f€ -> %.1fct\n", sensor.value, newValue);
-    }
-  }
+  // Spezielle Einheitenkonvertierung für Preise entfernt
+  // Day-Ahead-Preise kommen bereits in ct/kWh und müssen nicht konvertiert werden
 
   // Wert aktualisieren und formatieren
   sensor.value = newValue;
