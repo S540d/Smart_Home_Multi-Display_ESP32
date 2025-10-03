@@ -143,11 +143,9 @@ void drawHomeScreen() {
   tft.fillScreen(Colors::BG_MAIN);
   
   int offsetX = antiBurnin.getOffsetX();
-  
-  // Titel mit Anti-Burnin Offset
-  tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Smart Home Display Rev2", Layout::TITLE_X + offsetX, Layout::TITLE_Y, 2);
-  
+
+  // Titel entfernt auf User-Anfrage
+
   // TEST: Zeige kombinierte Layouts als Demonstration
   // Aktiviere dies temporär zum Testen der Kombinationen
   bool testCombinedLayout = false; // DEAKTIVIERT - zurück zum normalen Layout
@@ -226,14 +224,15 @@ void drawPriceDetailScreen() {
   tft.fillScreen(Colors::BG_MAIN);
 
   int offsetX = antiBurnin.getOffsetX();
+  int offsetY = antiBurnin.getOffsetY();
 
   // Titel
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Strompreis Day-Ahead", Layout::PADDING_LARGE + offsetX, Layout::PADDING_LARGE, 2);
+  tft.drawString("Strompreis Day-Ahead", Layout::PADDING_LARGE + offsetX, Layout::PADDING_LARGE + offsetY, 2);
 
   // Zurück-Button (oben rechts)
   int backButtonX = 270 + offsetX;
-  int backButtonY = 10;
+  int backButtonY = 10 + offsetY;
   tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
   tft.setTextColor(Colors::TEXT_MAIN);
   tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
@@ -448,14 +447,15 @@ void drawOekostromDetailScreen() {
 
   tft.fillScreen(Colors::BG_MAIN);
   int offsetX = antiBurnin.getOffsetX();
+  int offsetY = antiBurnin.getOffsetY();
 
   // Titel
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Oekostrom Details", 10 + offsetX, 10, 2);
+  tft.drawString("Oekostrom Details", 10 + offsetX, 10 + offsetY, 2);
 
   // Zurück-Button (oben rechts)
   int backButtonX = 270 + offsetX;
-  int backButtonY = 10;
+  int backButtonY = 10 + offsetY;
   tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
   tft.setTextColor(Colors::TEXT_MAIN);
   tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
@@ -504,7 +504,7 @@ void drawOekostromDetailScreen() {
 
     if (validCount > 0) {
       float priceRange = maxPrice - minPrice;
-      if (priceRange < 0.01f) priceRange = 0.01f;
+      // Entferne Fix für zu kleine Werte - das führte zu Preissprüngen
 
       // Zeichne Preisverlauf als vertikale Balken
       const int barWidth = chartWidth / 24;
@@ -637,9 +637,9 @@ void drawPriceChart(int offsetX) {
 
       // Skalierung des Balkens
       float priceRange = maxPrice - minPrice;
-      if (priceRange < 0.01f) priceRange = 0.01f;  // Vermeide Division durch Null
+      // Entferne Fix für zu kleine Werte - das führte zu Preissprüngen
 
-      int barHeight = (int)((price - minPrice) / priceRange * (chartHeight - 4));
+      int barHeight = (priceRange > 0) ? (int)((price - minPrice) / priceRange * (chartHeight - 4)) : 1;
       barHeight = max(1, barHeight);  // Mindesthöhe
 
       // Farbe basierend auf Preis (relativ zu Durchschnitt)
@@ -703,9 +703,10 @@ void drawCombinedSensorBox(int index1, int index2, int x, int y, int width, int 
   const SensorData& sensor1 = sensors[index1];
   const SensorData& sensor2 = sensors[index2];
   int offsetX = antiBurnin.getOffsetX();
-  
+  int offsetY = antiBurnin.getOffsetY();
+
   int boxX = x + offsetX;
-  int boxY = y;
+  int boxY = y + offsetY;
   
   // Hintergrundfarbe basierend auf Timeout-Status beider Sensoren
   uint16_t bgColor;
@@ -773,8 +774,9 @@ void drawSensorBox(int index) {
     // Aktien-Box ausblenden: Bereich löschen
     const SensorData& sensor = sensors[index];
     int offsetX = antiBurnin.getOffsetX();
+    int offsetY = antiBurnin.getOffsetY();
     int boxX = sensor.layout.x + offsetX;
-    int boxY = sensor.layout.y;
+    int boxY = sensor.layout.y + offsetY;
     
     tft.fillRect(boxX, boxY, sensor.layout.w, sensor.layout.h, Colors::BG_MAIN);
     
@@ -787,9 +789,10 @@ void drawSensorBox(int index) {
   
   const SensorData& sensor = sensors[index];
   int offsetX = antiBurnin.getOffsetX();
-  
+  int offsetY = antiBurnin.getOffsetY();
+
   int boxX = sensor.layout.x + offsetX;
-  int boxY = sensor.layout.y;
+  int boxY = sensor.layout.y + offsetY;
   
   // Spezielle Behandlung für intern berechnete Sensoren (Index 4 und 8)
   uint16_t bgColor;
@@ -1700,14 +1703,15 @@ void drawWallboxConsumptionScreen() {
 
   tft.fillScreen(Colors::BG_MAIN);
   int offsetX = antiBurnin.getOffsetX();
+  int offsetY = antiBurnin.getOffsetY();
 
   // Titel
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Wallbox Verbrauch", 10 + offsetX, 10, 2);
+  tft.drawString("Wallbox Verbrauch", 10 + offsetX, 10 + offsetY, 2);
 
   // Zurück-Button (oben rechts)
   int backButtonX = 270 + offsetX;
-  int backButtonY = 10;
+  int backButtonY = 10 + offsetY;
   tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
   tft.setTextColor(Colors::TEXT_MAIN);
   tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
@@ -1804,14 +1808,15 @@ void drawLadestandScreen() {
 
   tft.fillScreen(Colors::BG_MAIN);
   int offsetX = antiBurnin.getOffsetX();
+  int offsetY = antiBurnin.getOffsetY();
 
   // Titel
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Ladestand", 10 + offsetX, 10, 2);
+  tft.drawString("Ladestand", 10 + offsetX, 10 + offsetY, 2);
 
   // Zurück-Button (oben rechts)
   int backButtonX = 270 + offsetX;
-  int backButtonY = 10;
+  int backButtonY = 10 + offsetY;
   tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
   tft.setTextColor(Colors::TEXT_MAIN);
   tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);
@@ -1900,14 +1905,15 @@ void drawSettingsScreen() {
 
   tft.fillScreen(Colors::BG_MAIN);
   int offsetX = antiBurnin.getOffsetX();
+  int offsetY = antiBurnin.getOffsetY();
 
   // Titel
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Einstellungen", 10 + offsetX, 10, 2);
+  tft.drawString("Einstellungen", 10 + offsetX, 10 + offsetY, 2);
 
   // Zurück-Button (oben rechts)
   int backButtonX = 270 + offsetX;
-  int backButtonY = 10;
+  int backButtonY = 10 + offsetY;
   tft.drawRoundRect(backButtonX, backButtonY, 40, 20, 3, Colors::BORDER_MAIN);
   tft.setTextColor(Colors::TEXT_MAIN);
   tft.drawString("Zurueck", backButtonX + 3, backButtonY + 6, 1);

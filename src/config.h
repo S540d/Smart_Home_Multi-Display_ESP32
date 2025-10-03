@@ -374,39 +374,59 @@ struct SystemStatus {
   }
 };
 
-// Anti-Burnin Management - Verbessert für korrekte Löschung
+// Anti-Burnin Management - Verbessert mit ±2 Pixel in alle Richtungen
 struct AntiBurninManager {
   unsigned long lastShift = 0;
   int currentOffsetX = 0;
   int currentOffsetY = 0;
   int lastOffsetX = 0;  // Für Löschung der alten Position
   int lastOffsetY = 0;
-  bool moveRight = true;
+  int shiftState = 0;  // 0=center, 1=right, 2=left, 3=down, 4=up
   bool isEnabled = true;
   bool offsetChanged = false;
-  
+
   void update() {
     if (!isEnabled) return;
-    
+
     unsigned long now = millis();
     if (now - lastShift >= Timing::ANTI_BURNIN_INTERVAL) {
       lastShift = now;
-      
+
       // Alte Position speichern
       lastOffsetX = currentOffsetX;
       lastOffsetY = currentOffsetY;
-      
-      // Neue Position berechnen
-      if (moveRight) {
-        currentOffsetX = System::ANTI_BURNIN_MAX_OFFSET;
-        moveRight = false;
-        Serial.println("Anti-Burnin: →10px");
-      } else {
-        currentOffsetX = 0;
-        moveRight = true;
-        Serial.println("Anti-Burnin: ←0px");
+
+      // Neue Position berechnen - rotiere durch 5 Zustände
+      shiftState = (shiftState + 1) % 5;
+
+      switch (shiftState) {
+        case 0:  // Center
+          currentOffsetX = 0;
+          currentOffsetY = 0;
+          Serial.println("Anti-Burnin: ⊙ Center");
+          break;
+        case 1:  // Right +2px
+          currentOffsetX = 2;
+          currentOffsetY = 0;
+          Serial.println("Anti-Burnin: → +2px");
+          break;
+        case 2:  // Left -2px
+          currentOffsetX = -2;
+          currentOffsetY = 0;
+          Serial.println("Anti-Burnin: ← -2px");
+          break;
+        case 3:  // Down +2px
+          currentOffsetX = 0;
+          currentOffsetY = 2;
+          Serial.println("Anti-Burnin: ↓ +2px");
+          break;
+        case 4:  // Up -2px
+          currentOffsetX = 0;
+          currentOffsetY = -2;
+          Serial.println("Anti-Burnin: ↑ -2px");
+          break;
       }
-      
+
       offsetChanged = true;
     }
   }

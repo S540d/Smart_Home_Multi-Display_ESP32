@@ -90,6 +90,7 @@ struct ADCStats {
 
 // Display-Modus
 DisplayMode currentMode = HOME_SCREEN;
+unsigned long lastViewChangeTime = 0;  // Für Auto-Return nach 10s
 
 // Price Detail Data
 DayAheadPriceData dayAheadPrices;
@@ -126,7 +127,7 @@ void setup() {
   
   Serial.println();
   Serial.println("╔══════════════════════════════════════════════════════════════╗");
-  Serial.println("║               ESP32 Smart Home Display Rev2                ║");
+  Serial.println("║               ESP32 Smart Home Display                     ║");
   Serial.println("║            Vollständig modular strukturiert                 ║");
   Serial.println("╚══════════════════════════════════════════════════════════════╝");
   
@@ -209,13 +210,23 @@ void loop() {
       touchManager.updateSensorTouchAreas();
     }
     
+    // Auto-Return zur Hauptseite nach 10s (nur wenn nicht auf Hauptseite)
+    if (currentMode != HOME_SCREEN && lastViewChangeTime > 0) {
+      if (now - lastViewChangeTime >= 10000) {  // 10 Sekunden
+        Serial.println("⏱️ Auto-Return zur Hauptseite nach 10s");
+        currentMode = HOME_SCREEN;
+        lastViewChangeTime = 0;
+        renderManager.markFullRedrawRequired();
+      }
+    }
+
     // Display Updates
     if (renderManager.needsUpdate()) {
       updateDisplay();
       renderManager.lastRenderUpdate = now;
     }
 
-    
+
     // System-Überwachung
     if (systemStatus.criticalMemoryWarning) {
       handleLowMemory();
@@ -258,7 +269,7 @@ void initializeDisplay() {
   tft.fillScreen(Colors::BG_MAIN);
 
   tft.setTextColor(Colors::TEXT_MAIN);
-  tft.drawString("Smart Home Display Rev2", 10, 10, 2);
+  // Überschrift entfernt auf User-Anfrage
   tft.drawString("Initialisierung...", 10, 30, 1);
 
   logExecutionTime(startTime, "Display-Initialisierung");
@@ -407,14 +418,14 @@ void handleTouchEvent(const TouchEvent& event) {
           currentMode == LADESTAND_SCREEN ||
           currentMode == SETTINGS_SCREEN) {
         int backButtonX = 270 + antiBurnin.getOffsetX();
-        int backButtonY = 10;
+        int backButtonY = 10 + antiBurnin.getOffsetY();
 
         Serial.printf("🔍 Touch bei (%d,%d), Zurück-Button bei (%d,%d) bis (%d,%d)\n",
                      event.point.x, event.point.y, backButtonX, backButtonY,
                      backButtonX + 40, backButtonY + 20);
 
         // Erweiterte Touch-Area für bessere Erkennung (besonders bei Touch-Kalibrierung)
-        int touchMargin = 10;
+        int touchMargin = 15;  // Erhöht von 10 auf 15 für bessere Erkennung
         if (event.point.x >= (backButtonX - touchMargin) && event.point.x <= (backButtonX + 40 + touchMargin) &&
             event.point.y >= (backButtonY - touchMargin) && event.point.y <= (backButtonY + 20 + touchMargin)) {
           Serial.println("✅ Zurück-Button erkannt - zurück zum Home-Screen");
@@ -463,21 +474,25 @@ void handleTouchEvent(const TouchEvent& event) {
         switch (event.sensorIndex) {
           case 0: // Ökostrom-Box - Wechsel zur Ökostrom-Detail-Ansicht
             currentMode = OEKOSTROM_DETAIL_SCREEN;
+            lastViewChangeTime = millis();  // Timer für Auto-Return starten
             renderManager.markFullRedrawRequired();
             break;
 
           case 1: // Preis-Box - Wechsel zur Day-Ahead-Ansicht
             currentMode = DAYAHEAD_SCREEN;
+            lastViewChangeTime = millis();  // Timer für Auto-Return starten
             renderManager.markFullRedrawRequired();
             break;
 
           case 3: // Ladestand-Box - Wechsel zur Ladestand-Ansicht
             currentMode = LADESTAND_SCREEN;
+            lastViewChangeTime = millis();  // Timer für Auto-Return starten
             renderManager.markFullRedrawRequired();
             break;
 
           case 4: // Verbrauch-Box - Wechsel zur Verbrauch-Ansicht (Wallbox Consumption)
             currentMode = WALLBOX_CONSUMPTION_SCREEN;
+            lastViewChangeTime = millis();  // Timer für Auto-Return starten
             renderManager.markFullRedrawRequired();
             break;
         }
@@ -493,6 +508,7 @@ void handleTouchEvent(const TouchEvent& event) {
         if (event.point.x >= settingsX && event.point.x <= settingsX + settingsW &&
             event.point.y >= settingsY && event.point.y <= settingsY + settingsH) {
           currentMode = SETTINGS_SCREEN;
+          lastViewChangeTime = millis();  // Timer für Auto-Return starten
           renderManager.markFullRedrawRequired();
         }
       }
