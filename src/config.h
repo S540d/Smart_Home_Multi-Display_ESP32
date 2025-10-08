@@ -440,6 +440,33 @@ struct AntiBurninManager {
     offsetChanged = false;
     return changed;
   }
+  
+  // Safe coordinate application with bounds checking
+  int applyOffsetX(int x, int width = 0) const {
+    int result = x + currentOffsetX;
+    // Ensure the element stays within display bounds
+    if (width > 0) {
+      // For elements with width, ensure right edge doesn't exceed display
+      result = constrain(result, 0, Layout::DISPLAY_WIDTH - width);
+    } else {
+      // For single points, ensure within display width
+      result = constrain(result, 0, Layout::DISPLAY_WIDTH - 1);
+    }
+    return result;
+  }
+  
+  int applyOffsetY(int y, int height = 0) const {
+    int result = y + currentOffsetY;
+    // Ensure the element stays within display bounds
+    if (height > 0) {
+      // For elements with height, ensure bottom edge doesn't exceed display
+      result = constrain(result, 0, Layout::DISPLAY_HEIGHT - height);
+    } else {
+      // For single points, ensure within display height
+      result = constrain(result, 0, Layout::DISPLAY_HEIGHT - 1);
+    }
+    return result;
+  }
 };
 
 // Render-Manager für effiziente Updates
