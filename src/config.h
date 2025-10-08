@@ -303,6 +303,7 @@ struct SystemStatus {
   
   // Hardware-Info
   int ldrValue = 0;
+  int ldrValueSmoothed = 0;  // Geglätteter LDR-Wert für stabile Anzeige
   unsigned long uptime = 0;           // in Sekunden
   
   // Warnungen und Status

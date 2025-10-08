@@ -147,7 +147,7 @@ void logPerformanceStats() {
   Serial.printf("   Redraws übersprungen: %lu\n", perf.skippedRedraws);
   Serial.printf("   Render-Effizienz: %.1f%%\n", perf.redrawEfficiency);
   Serial.printf("   Uptime: %s\n", formatUptime(systemStatus.uptime).c_str());
-  Serial.printf("   LDR-Wert: %d\n", systemStatus.ldrValue);
+  Serial.printf("   LDR-Wert: %d (geglättet: %d)\n", systemStatus.ldrValue, systemStatus.ldrValueSmoothed);
   
   logMemoryStatus();
   Serial.println();
@@ -338,13 +338,35 @@ bool isSystemStable() {
 int readADCFiltered(int pin, int samples) {
   if (samples <= 0) samples = 1;
   
-  long sum = 0;
+  // ESP32 ADC-Konfiguration für stabilere Readings
+  // Pin 34 verwendet ADC1_6
+  analogSetAttenuation(ADC_11db);  // 0-3.3V Bereich
+  
+  // Mehrfach-Sampling mit Ausreißer-Filterung
+  int readings[samples];
   for (int i = 0; i < samples; i++) {
-    sum += analogRead(pin);
-    if (samples > 1) delay(1); // Kleine Pause zwischen Messungen
+    readings[i] = analogRead(pin);
+    if (samples > 1) delayMicroseconds(100); // Kurze Pause zwischen Messungen
   }
   
-  return sum / samples;
+  // Sortiere Werte für Median-Berechnung (robuster gegen Ausreißer)
+  for (int i = 0; i < samples - 1; i++) {
+    for (int j = i + 1; j < samples; j++) {
+      if (readings[i] > readings[j]) {
+        int temp = readings[i];
+        readings[i] = readings[j];
+        readings[j] = temp;
+      }
+    }
+  }
+  
+  // Verwende Median (mittlerer Wert) anstatt Durchschnitt
+  // Bei ungerader Anzahl: mittlerer Wert, bei gerader: Durchschnitt der 2 mittleren
+  if (samples % 2 == 1) {
+    return readings[samples / 2];
+  } else {
+    return (readings[samples / 2 - 1] + readings[samples / 2]) / 2;
+  }
 }
 
 float getTemperatureFromADC(int adcValue) {

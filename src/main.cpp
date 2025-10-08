@@ -363,8 +363,12 @@ void updateSystemStatus() {
   float rawCpuUsage = random(5, 85);
   systemStatus.updateCpuUsage(rawCpuUsage);
   
-  // Hardware-Sensoren (mit Filterung aus utils.cpp)
-  systemStatus.ldrValue = readADCFiltered(System::LDR_PIN, 3);
+  // Hardware-Sensoren (mit verbesserter Filterung)
+  // LDR mit mehr Samples (9) und Median-Filter für stabilere Readings
+  int rawLdr = readADCFiltered(System::LDR_PIN, 9);
+  // Moving Average über 5 Messungen für noch glattere Werte (reduziert WiFi-Störungen)
+  systemStatus.ldrValue = rawLdr;
+  systemStatus.ldrValueSmoothed = (int)calculateMovingAverage(rawLdr, systemStatus.ldrValueSmoothed, 0.2f);
   systemStatus.uptime = (millis() - systemStartTime) / 1000;
   
   renderManager.markSystemInfoChanged();
