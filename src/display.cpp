@@ -976,10 +976,10 @@ void drawSystemInfo() {
   tft.setTextColor(Colors::TEXT_LABEL);
   tft.drawString(uptimeText, infoX, infoY + 2 * Layout::LINE_SPACING, 1);
   
-  // LDR-Wert rechts neben Uptime
+  // LDR-Wert rechts neben Uptime (geglätteter Wert für stabile Anzeige)
   tft.setTextColor(Colors::TEXT_LABEL);
   char ldrText[16];
-  snprintf(ldrText, sizeof(ldrText), " LDR:%d", systemStatus.ldrValue);
+  snprintf(ldrText, sizeof(ldrText), " LDR:%d", systemStatus.ldrValueSmoothed);
   tft.drawString(ldrText, infoX + 35, infoY + 2 * Layout::LINE_SPACING, 1);
 }
 

@@ -116,8 +116,9 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  // Watchdog deaktivieren während Setup
-  esp_task_wdt_init(30, false); // 30 Sekunden Timeout, kein Panic
+  // Watchdog aktivieren für System-Stabilität (30s Timeout)
+  esp_task_wdt_init(30, true); // 30 Sekunden Timeout, enable panic
+  esp_task_wdt_add(NULL);      // Add current task to watchdog
 
   // MQTT Buffer Size für Day-Ahead JSON Arrays erhöhen (Standard: 256 Bytes)
   client.setBufferSize(1024);
@@ -160,6 +161,9 @@ void loop() {
   unsigned long now = millis();
   
   try {
+    // Watchdog füttern um Reset zu vermeiden
+    esp_task_wdt_reset();
+    
     // OTA-Updates verarbeiten (höchste Priorität)
     handleOTA();
 
@@ -279,29 +283,38 @@ void initializeTime() {
   unsigned long startTime = millis();
 
   if (!systemStatus.wifiConnected) {
+    Serial.println("⚠️ Zeit-Sync übersprungen - kein WiFi");
     systemStatus.timeValid = false;
     return;
   }
 
+  Serial.println("🕐 Starte NTP-Zeitsynchronisation...");
+  
+  // Konfiguriere NTP sofort nach WiFi-Verbindung
   configTime(0, 0, System::NTP_SERVER);
   setenv("TZ", System::TIMEZONE, 1);
   tzset();
 
+  // Versuche Zeit-Sync mit verbesserter Strategie
   int attempts = 0;
-  while (!systemStatus.timeValid && attempts < 3) {
+  const int maxAttempts = 5;  // Mehr Versuche für bessere Erfolgschance
+  
+  while (!systemStatus.timeValid && attempts < maxAttempts) {
     systemStatus.updateTime();
     if (!systemStatus.timeValid) {
-      delay(500);
+      delay(200);  // Kürzere Wartezeit für schnellere Initialisierung
       yield();
       attempts++;
     }
   }
 
-  logExecutionTime(startTime, "Zeit-Synchronisation");
-
-  if (!systemStatus.timeValid) {
-    systemStatus.timeValid = false;
+  if (systemStatus.timeValid) {
+    Serial.printf("✅ Zeit erfolgreich synchronisiert nach %d Versuchen\n", attempts + 1);
+  } else {
+    Serial.println("⚠️ Zeit-Sync fehlgeschlagen - wird im Hintergrund fortgesetzt");
   }
+
+  logExecutionTime(startTime, "Zeit-Synchronisation");
 }
 
 void initializeChipInfo() {
@@ -350,8 +363,12 @@ void updateSystemStatus() {
   float rawCpuUsage = random(5, 85);
   systemStatus.updateCpuUsage(rawCpuUsage);
   
-  // Hardware-Sensoren (mit Filterung aus utils.cpp)
-  systemStatus.ldrValue = readADCFiltered(System::LDR_PIN, 3);
+  // Hardware-Sensoren (mit verbesserter Filterung)
+  // LDR mit mehr Samples (9) und Median-Filter für stabilere Readings
+  int rawLdr = readADCFiltered(System::LDR_PIN, 9);
+  // Moving Average über 5 Messungen für noch glattere Werte (reduziert WiFi-Störungen)
+  systemStatus.ldrValue = rawLdr;
+  systemStatus.ldrValueSmoothed = (int)calculateMovingAverage(rawLdr, systemStatus.ldrValueSmoothed, 0.2f);
   systemStatus.uptime = (millis() - systemStartTime) / 1000;
   
   renderManager.markSystemInfoChanged();

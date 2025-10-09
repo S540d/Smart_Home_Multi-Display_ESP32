@@ -236,22 +236,28 @@ void TouchManager::updateSensorTouchAreas() {
     return;
   }
 
+  // Get current anti-burnin offsets
+  extern AntiBurninManager antiBurnin;
+  int offsetX = antiBurnin.getOffsetX();
+  int offsetY = antiBurnin.getOffsetY();
+
   // Touch-Bereiche basierend auf tatsächlichen Sensor-Positionen aus sensors.cpp
   // Touch-Bereiche passend zu den tatsächlichen Sensor-Boxen definiert
+  // WICHTIG: Anti-Burnin-Offsets werden angewendet, damit Touch-Bereiche mit verschobenem Display übereinstimmen
 
   // Reihe 1: Markt/Finanzen-Gruppe
-  touchAreas[0] = TouchArea(10, 35, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 0);   // Ökostrom
-  touchAreas[1] = TouchArea(115, 35, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 1);  // Preis
-  touchAreas[2] = TouchArea(220, 35, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 2);  // Aktie
+  touchAreas[0] = TouchArea(10 + offsetX, 35 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 0);   // Ökostrom
+  touchAreas[1] = TouchArea(115 + offsetX, 35 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 1);  // Preis
+  touchAreas[2] = TouchArea(220 + offsetX, 35 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 2);  // Aktie
 
   // Reihe 2: Power/Charge-Gruppe
-  touchAreas[3] = TouchArea(10, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 3);   // Ladestand
-  touchAreas[4] = TouchArea(115, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 4);  // Verbrauch
-  touchAreas[5] = TouchArea(220, 85, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 5);  // PV-Erzeugung
+  touchAreas[3] = TouchArea(10 + offsetX, 85 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 3);   // Ladestand
+  touchAreas[4] = TouchArea(115 + offsetX, 85 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 4);  // Verbrauch
+  touchAreas[5] = TouchArea(220 + offsetX, 85 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 5);  // PV-Erzeugung
 
   // Reihe 3: Umwelt-Gruppe
-  touchAreas[6] = TouchArea(10, 135, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 6);  // Außentemperatur
-  touchAreas[7] = TouchArea(115, 135, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 7); // Wassertemperatur
+  touchAreas[6] = TouchArea(10 + offsetX, 135 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 6);  // Außentemperatur
+  touchAreas[7] = TouchArea(115 + offsetX, 135 + offsetY, Layout::SENSOR_BOX_WIDTH, Layout::SENSOR_BOX_HEIGHT, 7); // Wassertemperatur
 
 }
 
